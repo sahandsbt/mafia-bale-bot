@@ -1,9 +1,12 @@
 #======================(INIT)======================
+from collections import defaultdict
+from dotenv import load_dotenv
 import bale
 import asyncio
 import random
 import os
-bot = bale.Bot(token = "1629802317:Fs2XBKHtEkPuBidK2OsnrECqJRXsZ-P2NZI")
+load_dotenv()
+bot = bale.Bot(token = os.getenv("BOT_TOKEN"))
 
 #======================(KEYBOARDS)======================
 start_keyboard = bale.MenuKeyboardMarkup()
@@ -29,14 +32,16 @@ class GameRoom:
         self.maf_count = 0
         self.cit_count = 0
         self.day_phase = True
-        self.votes = {} 
+        self.votes = defaultdict(set)
         self.vote_lock = asyncio.Lock()
         self.dead_players = set()
         self.alive_players = self.members.copy()
         
     async def assign_roles(self):
         members = self.members.copy()
-        special_roles = ['کارآگاه','دکتر','اسنایپر','پدرخوانده','دکتر مافیا']
+        special_roles = ['کارآگاه','دکتر'
+                        #  ,'اسنایپر','پدرخوانده','دکتر مافیا' #===============(Remove comment)
+                         ]
         for role_name in special_roles:
             ind = random.randint(0, len(members) - 1)
             self.roles[members[ind]] = role_name
@@ -135,12 +140,9 @@ class GameRoom:
             for i in self.members:
                 target_chat_id, target_name = i.split(',', 1)
                 if target_name == vote_input[7:]:
-                    if target_chat_id not in self.votes[voter_chat_id]:
-                        self.votes[voter_chat_id].append(target_chat_id)
-                        await bot.send_message(voter_chat_id,f"✅ رای شما به {target_name} ثبت شد!")
-                        return True
-                    else:
-                        await bot.send_message(voter_chat_id, "❌ رای تکراری مجاز نیست!")
+                    self.votes[voter_chat_id].add(target_chat_id)
+                    await bot.send_message(voter_chat_id,f"✅ رای شما به {target_name} ثبت شد!")
+                    return True
             await bot.send_message(voter_chat_id, "❌ رای نامعتبر! لطفا از گزینه ها انتخاب کنید")
             return False
     
@@ -328,7 +330,7 @@ async def when_message(message: bale.Message):
         for i in range(1, len(memberlist)):
             members.append(memberlist[i][:-1])
         
-        if len(members) > 4:
+        if len(members) > 1: #=================================================( >4 )
             asyncio.create_task(room(members))
             await message.reply("بازی شروع شد! نقش‌ها در حال تخصیص هستند...")
         else:
