@@ -41,7 +41,7 @@ class GameRoom:
     async def assign_roles(self):
         members = self.members.copy()
         special_roles = ['کارآگاه','دکتر'
-                        #  ,'اسنایپر','پدرخوانده','دکتر مافیا'
+                        #  ,'اسنایپر','پدرخوانده','دکتر مافیا' #===============(Remove comment)
                          ]
         for role_name in special_roles:
             ind = random.randint(0, len(members) - 1)
@@ -125,7 +125,6 @@ class GameRoom:
         return None
     
     async def start_voting(self):
-        self.vote_phase = True
         voting_keyboard = bale.MenuKeyboardMarkup()
         if self.execute_condidates:
             for member in self.execute_condidates:
@@ -137,6 +136,7 @@ class GameRoom:
             for member in self.alive_players:
                 name_id = member.split(',', 1)
                 voting_keyboard.add(bale.MenuKeyboardButton(f"رای به {name_id[1]}"))
+        self.vote_phase = True
         for member in self.alive_players:
             chat_id = member.split(',', 1)
             await bot.send_message(chat_id[0], f"🗳️ رای‌گیری شروع شد!\n"
@@ -159,8 +159,11 @@ class GameRoom:
                 if target_name.rstrip() == vote_input[7:]:
                     if self.execute_condidates:
                         if i in self.execute_condidates:
-                            self.votes[voter_chat_id].add(target_chat_id)
-                            await bot.send_message(voter_chat_id,f"✅ رای شما به {target_name} ثبت شد!")
+                            if self.votes[voter_chat_id]:
+                                await bot.send_message(voter_chat_id,f"❌ شما قبلا رای دادید!")
+                            else:
+                                self.votes[voter_chat_id].add(target_chat_id)
+                                await bot.send_message(voter_chat_id,f"✅ رای شما به {target_name} ثبت شد!")
                         else:
                             await bot.send_message(voter_chat_id, "❌ رای نامعتبر! لطفا از گزینه ها انتخاب کنید")
                     else:
