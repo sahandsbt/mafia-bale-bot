@@ -1,2 +1,2 @@
-python-dotenv==1.2.2
+python-dotenv==1.0.0
 python-bale-bot==2.5.0

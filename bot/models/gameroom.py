@@ -43,15 +43,15 @@ class GameRoom:
         members = self.members.copy()
         special_roles = ['کارآگاه','دکتر','پدرخوانده','اسنایپر','دکتر مافیا']
         for role_name in special_roles:
-            print(len(members))
-            ind = random.randint(0, len(members) - 1)
-            self.roles[members[ind]] = role_name
-            if role_name in ['پدرخوانده','دکتر مافیا']:
-                self.maf_count +=1
-                self.mafia_team.append(members[ind])
-            else:
-                self.cit_count +=1
-            members.pop(ind)
+            if members:
+                ind = random.randint(0, len(members) - 1)
+                self.roles[members[ind]] = role_name
+                if role_name in ['پدرخوانده','دکتر مافیا']:
+                    self.maf_count +=1
+                    self.mafia_team.append(members[ind])
+                else:
+                    self.cit_count +=1
+                members.pop(ind)
         maf_count = len(members) // 3
         self.maf_count += maf_count
         for _ in range(maf_count):
