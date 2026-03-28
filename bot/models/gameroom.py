@@ -40,8 +40,7 @@ class GameRoom:
         
     async def assign_roles(self):
         members = self.members.copy()
-        special_roles = [#'کارآگاه','دکتر','اسنایپر',
-                         'پدرخوانده','دکتر مافیا']
+        special_roles = ['کارآگاه','دکتر','اسنایپر','پدرخوانده','دکتر مافیا']
         for role_name in special_roles:
             ind = random.randint(0, len(members) - 1)
             self.roles[members[ind]] = role_name
@@ -117,7 +116,6 @@ class GameRoom:
         if self.current_talker == chat_id:
             await self.broadcast_message(f"📢 {self.current_talker_name}: {message}",exclude_talker=True)
             return True
-        print(f"{self.mafia_phase} ---- {member_str in self.mafia_team}")
         if self.mafia_phase and (member_str in self.mafia_team):
             for member in self.mafia_team:
                 temp_chat_id = member.split(',', 1)
