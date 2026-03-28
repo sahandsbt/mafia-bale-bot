@@ -46,8 +46,8 @@ async def room(bot, members_list):
             del room_locks[room_id]
 
 async def on_message(bot: bale.Bot, message: bale.Message):
-    if (message.text == None):
-        logger.warning(f"Unsupported type of message sent. Name: {message.from_user.first_name} | ID: {message.from_user.id}")
+    if message.text == None:
+        logger.warning(f"Unsupported type of message sent. | Name: {message.from_user.first_name} - ID: {message.from_user.id}")
         return
     chat_id = str(message.chat_id)
 
@@ -98,14 +98,15 @@ async def on_message(bot: bale.Bot, message: bale.Message):
                     meschat_id = ids[0].split(',')
                     memberlist = f"🔅{message.from_user.first_name}\n"
                     for i in range(1, len(ids)):
-                        temp2 = ids[i].split(sep=',', maxsplit=1)
-                        memberlist += f"🔅{temp2[1]}"
+                        temp = ids[i].split(sep=',', maxsplit=1)
+                        await bot.send_message(temp[0],f"💠 {message.from_user.first_name} به گروه اضافه شد.")
+                        memberlist += f"🔅{temp[1]}"
                     await bot.edit_message(
                         meschat_id[0], meschat_id[1][:-1],
                         f"⚔ اینو برا دوستات بفرست:\nhttps://ble.ir/sasabot?start={start_code}\n\n⏰ افراد اضافه شده:\n{memberlist}",
                         components=leader_keyboard)
                     await message.reply(
-                        text="🔥 به بازی اضافه شدی. وایستا تا بازی شروع شه.",
+                        text=f"🔥 به بازی اضافه شدی. وایستا تا بازی شروع شه.\n\n⏰ اعضای فعلی:\n{memberlist}",
                         components=invited_keyboard)
                 room_file.close()
     
@@ -116,6 +117,12 @@ async def on_message(bot: bale.Bot, message: bale.Message):
         with open(f"{message.from_user.id}.txt", 'w') as f:
             f.write(f"{message.chat_id},{int(message.message_id) + 1}\n")
     
+    elif message.text == "☎ پشتیبانی" or message.text == "/support":
+        await message.reply(text="📣 در صورت بروز هرگونه مشکل فنی خواهشمندیم به\n🆔 @sahandsbt\nدر بله یا تلگرام پیام دهید.")
+    
+    elif message.text == "❓ راهنما" or message.text == "/help":
+        await message.reply(text="😑 داریم روش کار میکنیم.")
+     
     elif message.text == "🎮 شروع بازی 🎮":
         members = [f"{message.from_user.chat_id},{message.from_user.first_name}"]
         with open(f"{message.from_user.id}.txt", 'r') as f:
@@ -133,5 +140,5 @@ async def on_message(bot: bale.Bot, message: bale.Message):
         await message.reply(text="😑 داریم روش کار میکنیم.")
     
     else:
-        await message.reply(text="😒 دستور نامعتبر")
-        logger.warning(f"Unsupported command sent. username: {message.from_user.chat_id} {message.from_user.last_name} id: {message.from_user.id}")
+        await message.reply(text="😒 دستور نامعتبر!")
+        logger.warning(f"Unsupported command sent. | Name: {message.from_user.first_name} - ID: {message.from_user.id}")
