@@ -1,29 +1,13 @@
-#======================(INIT)======================
-from collections import defaultdict
-from dotenv import load_dotenv
+"""Game room model"""
+
 import bale
-import asyncio
 import random
-import os
-load_dotenv()
-bot = bale.Bot(token = os.getenv("BOT_TOKEN"))
-
-#======================(KEYBOARDS)======================
-start_keyboard = bale.MenuKeyboardMarkup()
-start_keyboard.add(bale.MenuKeyboardButton("🎡 ساخت گروه 🎡"),row=1)
-start_keyboard.add(bale.MenuKeyboardButton("❓ راهنما"),row=2)
-start_keyboard.add(bale.MenuKeyboardButton("☎ پشتیبانی"),row=2)
-
-leader_keyboard = bale.MenuKeyboardMarkup()
-leader_keyboard.add(bale.MenuKeyboardButton("🎮 شروع بازی 🎮"),row=1)
-
-invited_keyboard = bale.MenuKeyboardMarkup()
-invited_keyboard.add(bale.MenuKeyboardButton("🚪 خروج 🚪"),row=1)
-
-null_keyboard = bale.MenuKeyboardMarkup()
+import asyncio
+from collections import defaultdict
 
 class GameRoom:
-    def __init__(self, members_list):
+    def __init__(self, bot: bale.Bot, members_list):
+        self.bot = bot
         self.members = members_list.copy()
         self.roles = {}
         self.current_talker = None
@@ -76,7 +60,7 @@ class GameRoom:
             self.roles[member] = 'شهروند ساده'
         for member in self.members:
             chat_id = member.split(',', 1)
-            await bot.send_message(chat_id[0], f"🎭 بازی شروع شد! نقش شما {self.roles[member]} است.",components=None)
+            await self.bot.send_message(chat_id[0], f"🎭 بازی شروع شد! نقش شما {self.roles[member]} است.",components=None)
         role_count = {}
         for role in self.roles.values():
             role_count[role] = role_count.get(role, 0) + 1
@@ -93,7 +77,7 @@ class GameRoom:
                 continue
             if exclude_dead and member in self.dead_players:
                 continue
-            await bot.send_message(chat_id[0], message)
+            await self.bot.send_message(chat_id[0], message)
     
     async def start_talking_turn(self, member):
         chat_id, name = member.split(',', 1)
@@ -102,11 +86,11 @@ class GameRoom:
         self.current_talker = chat_id
         self.current_talker_name = name
         if self.execute_condidates:
-            await self.broadcast_message(f"🗣️ نوبت دفاعیه {name} است.",exclude_talker=True)
-            await bot.send_message(chat_id,"⏳ نوبت دفاعیه شماست. تا 45 ثانیه تمام پیام‌های شما برای بقیه ارسال می‌شود.")
+            await self.broadcast_message(f"🗣️ نوبت دفاعیه {name} است.",exclude_talker=True,exclude_dead=True)
+            await self.bot.send_message(chat_id,"⏳ نوبت دفاعیه شماست. تا 45 ثانیه تمام پیام‌های شما برای بقیه ارسال می‌شود.")
         else:
             await self.broadcast_message(f"🗣️ نوبت حرف زدن {name} است.",exclude_talker=True,exclude_dead=True)
-            await bot.send_message(chat_id,"⏳ نوبت حرف زدن شماست. تا 30 ثانیه تمام پیام‌های شما برای بقیه ارسال می‌شود.")
+            await self.bot.send_message(chat_id,"⏳ نوبت حرف زدن شماست. تا 30 ثانیه تمام پیام‌های شما برای بقیه ارسال می‌شود.")
         asyncio.create_task(self.end_talking_turn())
     
     async def end_talking_turn(self):
@@ -118,7 +102,7 @@ class GameRoom:
             await self.broadcast_message(
                 f"⏰ زمان صحبت {self.current_talker_name} به پایان رسید.",
                 exclude_talker=True,exclude_dead=True)
-            await bot.send_message(self.current_talker,"⏰ زمان صحبت شما به پایان رسید.")
+            await self.bot.send_message(self.current_talker,"⏰ زمان صحبت شما به پایان رسید.")
             self.current_talker = None
             self.current_talker_name = None
     
@@ -127,7 +111,7 @@ class GameRoom:
             return False
         member_str = self.get_member_by_chat_id(chat_id)
         if member_str and member_str in self.dead_players:
-            await bot.send_message(chat_id, "❌ شما مرده‌اید و نمی‌توانید صحبت کنید!")
+            await self.bot.send_message(chat_id, "❌ شما مرده‌اید و نمی‌توانید صحبت کنید!")
             return True
         if self.current_talker == chat_id:
             await self.broadcast_message(f"📢 {self.current_talker_name}: {message}",exclude_talker=True)
@@ -138,10 +122,10 @@ class GameRoom:
                 temp_chat_id = member.split(',', 1)
                 if member != member_str:
                     talker = member_str.split(',', 1)
-                    await bot.send_message(temp_chat_id[0], f"📢 {talker[1]}: {message}")
+                    await self.bot.send_message(temp_chat_id[0], f"📢 {talker[1]}: {message}")
                     return True
             return True
-        await bot.send_message(chat_id, "❌ نوبت صحبت شما نیست!")
+        await self.bot.send_message(chat_id, "❌ نوبت صحبت شما نیست!")
     
     def get_member_by_chat_id(self, chat_id):
         for member in self.members:
@@ -167,7 +151,7 @@ class GameRoom:
         self.vote_phase = True
         for member in self.alive_players:
             chat_id = member.split(',', 1)
-            await bot.send_message(chat_id[0], f"🗳️ رای‌گیری شروع شد!\n"
+            await self.bot.send_message(chat_id[0], f"🗳️ رای‌گیری شروع شد!\n"
             "برای رای دادن از دکمه ها استفاده کنید. سی ثانیه فرصت دارید",components=voting_keyboard)
         await asyncio.sleep(20) #============================================= (30)
         await self.count_votes()
@@ -176,10 +160,10 @@ class GameRoom:
         async with self.vote_lock:
             voter_member = self.get_member_by_chat_id(voter_chat_id)
             if not self.vote_phase:
-                await bot.send_message(voter_chat_id, "❌ الان مرحله رای‌گیری نیست!")
+                await self.bot.send_message(voter_chat_id, "❌ الان مرحله رای‌گیری نیست!")
                 return False
             if not voter_member or voter_member in self.dead_players:
-                await bot.send_message(voter_chat_id, "❌ شما مرده‌اید و نمی‌توانید رای دهید!")
+                await self.bot.send_message(voter_chat_id, "❌ شما مرده‌اید و نمی‌توانید رای دهید!")
                 return False
             
             for i in self.alive_players:
@@ -188,19 +172,19 @@ class GameRoom:
                     if self.execute_condidates:
                         if i in self.execute_condidates:
                             if self.votes[voter_chat_id]:
-                                await bot.send_message(voter_chat_id,f"❌ شما قبلا رای دادید!")
+                                await self.bot.send_message(voter_chat_id,f"❌ شما قبلا رای دادید!")
                             else:
                                 self.votes[voter_chat_id].add(target_chat_id)
-                                await bot.send_message(voter_chat_id,f"✅ رای شما به {target_name} ثبت شد!")
+                                await self.bot.send_message(voter_chat_id,f"✅ رای شما به {target_name} ثبت شد!")
                         else:
-                            await bot.send_message(voter_chat_id, "❌ رای نامعتبر! لطفا از گزینه ها انتخاب کنید")
+                            await self.bot.send_message(voter_chat_id, "❌ رای نامعتبر! لطفا از گزینه ها انتخاب کنید")
                     else:
                         self.votes[voter_chat_id].add(target_chat_id)
                         voter_name = voter_member.split(',',1)
                         await self.broadcast_message(f"🎯 رای {voter_name[1]} به {target_name} ثبت شد!")
 
                     return True
-            await bot.send_message(voter_chat_id, "❌ رای نامعتبر! لطفا از گزینه ها انتخاب کنید")
+            await self.bot.send_message(voter_chat_id, "❌ رای نامعتبر! لطفا از گزینه ها انتخاب کنید")
             return False
     
     async def count_votes(self):
@@ -265,9 +249,9 @@ class GameRoom:
         for member in self.alive_players:
             chat_id = member.split(',', 1)
             if member in self.mafia_team:
-                await bot.send_message(chat_id[0], f"🎩 گروه مافیا 60 ثانیه فرصت مشورت و ارسال پیام به یکدیگر دارند.\n🔔 اعضای مافیا:\n{mafia_team_str}")
+                await self.bot.send_message(chat_id[0], f"🎩 گروه مافیا 60 ثانیه فرصت مشورت و ارسال پیام به یکدیگر دارند.\n🔔 اعضای مافیا:\n{mafia_team_str}")
             else:
-                await bot.send_message(chat_id[0], "🎩 گروه مافیا 60 ثانیه فرصت مشورت و ارسال پیام به یکدیگر دارند.")
+                await self.bot.send_message(chat_id[0], "🎩 گروه مافیا 60 ثانیه فرصت مشورت و ارسال پیام به یکدیگر دارند.")
         self.mafia_phase = True
         await asyncio.sleep(25) #=============================(60)
         if not self.first_day:
@@ -313,16 +297,16 @@ class GameRoom:
                 name_id = member.split(',', 1)
                 current_row = (self.alive_players.index(member) + 3) // 3
                 godfather_keyboard.add(bale.MenuKeyboardButton(f"کشتن {name_id[1]}"),row=current_row)
-            await bot.send_message(godfa_id,"🔫 شکار شب را تا 20 ثانیه دیگر انتخاب کنید!",components=godfather_keyboard)
+            await self.bot.send_message(godfa_id,"🔫 شکار شب را تا 20 ثانیه دیگر انتخاب کنید!",components=godfather_keyboard)
 
     async def handle_kill(self, killer_chat_id, kill_input):
         async with self.vote_lock:
             killer_member = self.get_member_by_chat_id(killer_chat_id)
             if killer_member != self.godfather:
-                await bot.send_message(killer_chat_id, "❌ شما لیدر مافیا نیستید!")
+                await self.bot.send_message(killer_chat_id, "❌ شما لیدر مافیا نیستید!")
                 return False
             if not self.godfa_phase:
-                await bot.send_message(killer_chat_id, "❌ الان وقت شکار نیست!")
+                await self.bot.send_message(killer_chat_id, "❌ الان وقت شکار نیست!")
                 return False
             for i in self.alive_players:
                 target_chat_id, target_name = i.split(',', 1)
@@ -330,10 +314,10 @@ class GameRoom:
                     self.night_target = i
                     for member in self.mafia_team:
                         temp_chat_id = member.split(',', 1)
-                        await bot.send_message(temp_chat_id[0], f"☠ به {target_name} شلیک شد!")
+                        await self.bot.send_message(temp_chat_id[0], f"☠ به {target_name} شلیک شد!")
                     self.godfa_phase = False
                     return True
-            await bot.send_message(killer_chat_id, "❌ لطفا از گزینه ها انتخاب کنید")
+            await self.bot.send_message(killer_chat_id, "❌ لطفا از گزینه ها انتخاب کنید")
             return False
         
     async def sniper_snipe(self):
@@ -350,16 +334,16 @@ class GameRoom:
                 name_id = member.split(',', 1)
                 current_row = (self.alive_players.index(member) + 3) // 3
                 sniper_keyboard.add(bale.MenuKeyboardButton(f"اسنایپ {name_id[1]}"),row=current_row)
-            await bot.send_message(sniper_id,"🔫 اسنایپ شب را تا 20 ثانیه دیگر انتخاب کنید!",components=sniper_keyboard)
+            await self.bot.send_message(sniper_id,"🔫 اسنایپ شب را تا 20 ثانیه دیگر انتخاب کنید!",components=sniper_keyboard)
 
     async def handle_snipe(self, sniper_chat_id, kill_input):
         async with self.vote_lock:
             sniper_member = self.get_member_by_chat_id(sniper_chat_id)
             if sniper_member != self.sniper:
-                await bot.send_message(sniper_chat_id, "❌ شما اسنایپر نیستید!")
+                await self.bot.send_message(sniper_chat_id, "❌ شما اسنایپر نیستید!")
                 return False
             if not self.snipe_phase:
-                await bot.send_message(sniper_chat_id, "❌ الان وقت اسنایپ نیست!")
+                await self.bot.send_message(sniper_chat_id, "❌ الان وقت اسنایپ نیست!")
                 return False
             for i in self.alive_players:
                 target_chat_id, target_name = i.split(',', 1)
@@ -368,10 +352,10 @@ class GameRoom:
                         self.sniper_target = i
                     else:
                         self.sniper_target = self.sniper
-                    await bot.send_message(sniper_chat_id, f"☠ به {target_name} شلیک شد!")
+                    await self.bot.send_message(sniper_chat_id, f"☠ به {target_name} شلیک شد!")
                     self.sniper_phase = False
                     return True
-            await bot.send_message(sniper_chat_id, "❌ لطفا از گزینه ها انتخاب کنید")
+            await self.bot.send_message(sniper_chat_id, "❌ لطفا از گزینه ها انتخاب کنید")
             return False
     
     async def doctor_save(self):
@@ -388,16 +372,16 @@ class GameRoom:
                 name_id = member.split(',', 1)
                 current_row = (self.alive_players.index(member) + 3) // 3
                 doctor_keyboard.add(bale.MenuKeyboardButton(f"نجات {name_id[1]}"),row=current_row)
-            await bot.send_message(doci_id,"💞 تا 20 ثانیه دیگر انتخاب کنید چه کسی را نجات میدهید!",components=doctor_keyboard)
+            await self.bot.send_message(doci_id,"💞 تا 20 ثانیه دیگر انتخاب کنید چه کسی را نجات میدهید!",components=doctor_keyboard)
 
     async def handle_save(self, doctor_chat_id, save_input):
         async with self.vote_lock:
             doctor_member = self.get_member_by_chat_id(doctor_chat_id)
             if doctor_member != self.doctor:
-                await bot.send_message(doctor_chat_id, "❌ شما دکتر نیستید!")
+                await self.bot.send_message(doctor_chat_id, "❌ شما دکتر نیستید!")
                 return False
             if not self.doctor_phase:
-                await bot.send_message(doctor_chat_id, "❌ الان وقت نجات نیست!")
+                await self.bot.send_message(doctor_chat_id, "❌ الان وقت نجات نیست!")
                 return False
             for i in self.alive_players:
                 save_chat_id, save_name = i.split(',', 1)
@@ -406,10 +390,10 @@ class GameRoom:
                         self.night_target = ""
                     if i == self.sniper_target and self.sniper_target != self.sniper:
                         self.sniper_target = ""
-                    await bot.send_message(doctor_chat_id, f"💗 {save_name} شفا یافت.")
+                    await self.bot.send_message(doctor_chat_id, f"💗 {save_name} شفا یافت.")
                     self.doctor_phase = False
                     return True
-            await bot.send_message(doctor_chat_id, "❌ لطفا از گزینه ها انتخاب کنید")
+            await self.bot.send_message(doctor_chat_id, "❌ لطفا از گزینه ها انتخاب کنید")
             return False
     
     async def lecter_prot(self):
@@ -426,26 +410,26 @@ class GameRoom:
                 name_id = member.split(',', 1)
                 current_row = (self.mafia_team.index(member) + 3) // 3
                 lecter_keyboard.add(bale.MenuKeyboardButton(f"حفاظت از {name_id[1]}"),row=current_row)
-            await bot.send_message(doci_id,"💞 تا 20 ثانیه دیگر انتخاب کنید چه کسی را نجات میدهید!",components=lecter_keyboard)
+            await self.bot.send_message(doci_id,"💞 تا 20 ثانیه دیگر انتخاب کنید چه کسی را نجات میدهید!",components=lecter_keyboard)
 
     async def handle_prot(self, doctor_chat_id, save_input):
         async with self.vote_lock:
             doctor_member = self.get_member_by_chat_id(doctor_chat_id)
             if doctor_member != self.lecter:
-                await bot.send_message(doctor_chat_id, "❌ شما دکتر نیستید!")
+                await self.bot.send_message(doctor_chat_id, "❌ شما دکتر نیستید!")
                 return False
             if not self.lecter_phase:
-                await bot.send_message(doctor_chat_id, "❌ الان وقت نجات نیست!")
+                await self.bot.send_message(doctor_chat_id, "❌ الان وقت نجات نیست!")
                 return False
             for i in self.mafia_team:
                 save_chat_id, save_name = i.split(',', 1)
                 if save_name.rstrip() == save_input[9:]:
                     if i == self.sniper_target:
                         self.sniper_target = ""
-                    await bot.send_message(doctor_chat_id, f"💗 {save_name} شفا یافت.")
+                    await self.bot.send_message(doctor_chat_id, f"💗 {save_name} شفا یافت.")
                     self.lecter_phase = False
                     return True
-            await bot.send_message(doctor_chat_id, "❌ لطفا از گزینه ها انتخاب کنید")
+            await self.bot.send_message(doctor_chat_id, "❌ لطفا از گزینه ها انتخاب کنید")
             return False
         
     async def detective_ask(self):
@@ -462,27 +446,27 @@ class GameRoom:
                 name_id = member.split(',', 1)
                 current_row = (self.alive_players.index(member) + 3) // 3
                 detective_keyboard.add(bale.MenuKeyboardButton(f"استعلام {name_id[1]}"),row=current_row)
-            await bot.send_message(detec_id,"🔎 تا 20 ثانیه دیگر انتخاب کنید استعلام چه کسی را میگیرید!",components=detective_keyboard)
+            await self.bot.send_message(detec_id,"🔎 تا 20 ثانیه دیگر انتخاب کنید استعلام چه کسی را میگیرید!",components=detective_keyboard)
 
     async def handle_detect(self, detect_chat_id, asked_input):
         async with self.vote_lock:
             detect_member = self.get_member_by_chat_id(detect_chat_id)
             if detect_member != self.detective:
-                await bot.send_message(detect_chat_id, "❌ شما کارآگاه نیستید!")
+                await self.bot.send_message(detect_chat_id, "❌ شما کارآگاه نیستید!")
                 return False
             if not self.detect_phase:
-                await bot.send_message(detect_chat_id, "❌ الان وقت استعلام نیست!")
+                await self.bot.send_message(detect_chat_id, "❌ الان وقت استعلام نیست!")
                 return False
             for i in self.alive_players:
                 condi_chat_id, condi_name = i.split(',', 1)
                 if condi_name.rstrip() == asked_input[8:]:
                     if i in self.mafia_team and i != self.godfather:
-                        await bot.send_message(detect_chat_id, f"‼ {condi_name} مافیا است!")
+                        await self.bot.send_message(detect_chat_id, f"‼ {condi_name} مافیا است!")
                     else:
-                        await bot.send_message(detect_chat_id, f"🔹 {condi_name} شهروند است.")
+                        await self.bot.send_message(detect_chat_id, f"🔹 {condi_name} شهروند است.")
                     self.detect_phase = False
                     return True
-            await bot.send_message(detect_chat_id, "❌ لطفا از گزینه ها انتخاب کنید")
+            await self.bot.send_message(detect_chat_id, "❌ لطفا از گزینه ها انتخاب کنید")
             return False
         
     async def day_inquire(self):
@@ -534,130 +518,3 @@ class GameRoom:
             if await self.check_game_end():
                 self.game_active = False
                 break
-
-active_rooms = {}
-room_locks = {}
-
-async def room(members_list):
-    room_id = str(hash(tuple(members_list)))
-    room_locks[room_id] = asyncio.Lock()
-    game_room = GameRoom(members_list)
-    active_rooms[room_id] = game_room
-    try:
-        await game_room.run_game()
-    except Exception as e:
-        print(f"Error in room {room_id}: {e}")
-        await game_room.broadcast_message(f"❌ خطا در بازی: {str(e)}\n📞 پشتیبانی: @sahandsbt")
-    finally:
-        if room_id in active_rooms:
-            del active_rooms[room_id]
-        if room_id in room_locks:
-            del room_locks[room_id]
-
-# ====================== (LISTENER) =======================
-@bot.listen("on_message")
-async def when_message(message: bale.Message):
-    chat_id = str(message.chat_id)
-    if message.text.startswith("رای به") or message.text.startswith("کشتن") or message.text.startswith("اسنایپ") or message.text.startswith("نجات") or message.text.startswith("حفاظت از") or message.text.startswith("استعلام"):
-        target_room = None
-        for room_id, game_room in active_rooms.items():
-            for member in game_room.members:
-                member_chat_id, _ = member.split(',', 1)
-                if member_chat_id == chat_id:
-                    target_room = game_room
-                    break
-            if target_room:
-                break
-        if target_room and target_room.game_active:
-            if message.text.startswith("رای به"):
-                await target_room.handle_vote(chat_id, message.text)
-            elif message.text.startswith("کشتن"):
-                await target_room.handle_kill(chat_id, message.text)
-            elif message.text.startswith("اسنایپ"):
-                await target_room.handle_snipe(chat_id, message.text)
-            elif message.text.startswith("نجات"):
-                await target_room.handle_save(chat_id, message.text)
-            elif message.text.startswith("حفاظت از"):
-                await target_room.handle_prot(chat_id, message.text)
-            elif message.text.startswith("استعلام"):
-                await target_room.handle_detect(chat_id, message.text)
-        else:
-            await message.reply(
-                text="😒 توی بازی فعالی نیستی!\n\n💥 برای شروع بازی روی تشکیل گروه کلیک کن یا\n➖ /party\nرو بفرست😎",
-                components=start_keyboard)
-
-    elif message.text.startswith("/start"):
-        if message.text == "/start":
-            await message.reply(
-                text="سلام خوش اومدی به بات بازی مافیا🥹\n\n💥 برای شروع بازی روی تشکیل گروه کلیک کن یا\n➖ /party\nرو بفرست😎",
-                components=start_keyboard
-            )
-        else:
-            invite_code_list = message.text.split()
-            invite_code = invite_code_list[1]
-            if message.from_user.id != invite_code:
-                room_file = open(f"{invite_code}.txt", 'r')
-                ids = room_file.readlines()
-                new_line = f"{message.from_user.chat_id},{message.from_user.first_name}\n"
-                
-                if new_line not in ids:
-                    with open(f"{invite_code}.txt", 'a') as f:
-                        f.write(f"{message.from_user.chat_id},{message.from_user.first_name}\n")
-                    
-                    meschat_id = ids[0].split(',')
-                    memberlist = f"🔅{message.from_user.first_name}\n"
-                    for i in range(1, len(ids)):
-                        temp2 = ids[i].split(sep=',', maxsplit=1)
-                        memberlist += f"🔅{temp2[1]}"
-                    
-                    await bot.edit_message(
-                        meschat_id[0],
-                        meschat_id[1][:-1],
-                        "⏰ افراد اضافه شده:\n\n" + memberlist,
-                        components=leader_keyboard
-                    )
-                    await message.reply(
-                        text="🔥 به بازی اضافه شدی. وایستا تا بازی شروع شه.",
-                        components=invited_keyboard
-                    )
-                room_file.close()
-    
-    elif message.text == "🎡 ساخت گروه 🎡" or message.text == "/party":
-        await message.reply(
-            text=f"اینو برا دوستات بفرست:\nhttps://ble.ir/sasabot?start={message.from_user.id}",
-            components=leader_keyboard
-        )
-        with open(f"{message.from_user.id}.txt", 'w') as f:
-            f.write(f"{message.chat_id},{int(message.message_id) + 1}\n")
-    
-    elif message.text == "🎮 شروع بازی 🎮":
-        members = [f"{message.from_user.chat_id},{message.from_user.first_name}"]
-        with open(f"{message.from_user.id}.txt", 'r') as f:
-            memberlist = f.readlines()
-        os.remove(f"{message.from_user.id}.txt")
-        
-        for i in range(1, len(memberlist)):
-            members.append(memberlist[i][:-1])
-        
-        if len(members) > 1:
-            asyncio.create_task(room(members))
-            await message.reply("بازی شروع شد! نقش‌ها در حال تخصیص هستند...")
-        else:
-            await message.reply(text="حداقل تعداد برای شروع ۵ نفر است!")
-    
-    elif message.text == "🚪 خروج 🚪":
-        await message.reply(text="Nemishe")
-    
-    else:
-        for room_id, game_room in active_rooms.items():
-            async with room_locks.get(room_id, asyncio.Lock()):
-                for member in game_room.members:
-                    member_chat_id, _ = member.split(',', 1)
-                    if member_chat_id == chat_id:
-                        if game_room.game_active and message.text and not message.text.startswith('/'):
-                            await game_room.handle_player_message(chat_id, message.text)
-                            return
-                        break
-        await message.reply(text="😒 دستور نامعتبر")
-    
-bot.run()
