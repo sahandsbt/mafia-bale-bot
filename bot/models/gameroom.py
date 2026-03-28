@@ -26,6 +26,7 @@ class GameRoom:
         self.lecter_phase = False
         self.detect_phase = False
         self.godfather = ""
+        self.maf_leader = ""
         self.doctor = ""
         self.sniper = ""
         self.lecter = ""
@@ -40,22 +41,28 @@ class GameRoom:
         
     async def assign_roles(self):
         members = self.members.copy()
-        special_roles = ['کارآگاه','دکتر','اسنایپر','پدرخوانده','دکتر مافیا']
+        special_roles = ['کارآگاه','دکتر','اسنایپر','پدرخوانده'
+        #'دکتر مافیا'
+        ]
         for role_name in special_roles:
+            print(len(members))
             ind = random.randint(0, len(members) - 1)
             self.roles[members[ind]] = role_name
             if role_name in ['پدرخوانده','دکتر مافیا']:
+                self.maf_count +=1
                 self.mafia_team.append(members[ind])
+            else:
+                self.cit_count +=1
             members.pop(ind)
         maf_count = len(members) // 3
-        self.maf_count = maf_count + 2
+        self.maf_count += maf_count
         for _ in range(maf_count):
             if members:
                 maf_ind = random.randint(0, len(members) - 1)
                 self.roles[members[maf_ind]] = 'مافیای ساده'
                 self.mafia_team.append(members[maf_ind])
                 members.pop(maf_ind)
-        self.cit_count = len(members) + 3
+        self.cit_count += len(members)
         for member in members:
             self.roles[member] = 'شهروند ساده'
         for member in self.members:
@@ -275,33 +282,34 @@ class GameRoom:
         self.mafia_phase = False
         self.godfa_phase = True
         self.godfather = ""
+        self.maf_leader = ""
         for member in self.alive_players:
             if self.roles[member] == 'پدرخوانده':
                 self.godfather = member
+                self.maf_leader = member
                 break
-        if not self.godfather:
+        if not self.maf_leader:
             for member in self.alive_players:
                 if self.roles[member] == 'دکتر مافیا':
-                    self.godfather = member
+                    self.maf_leader = member
                     break
-        if not self.godfather:
+        if not self.maf_leader:
             for member in self.alive_players:
                 if self.roles[member] == 'مافیای ساده':
-                    self.godfather = member
+                    self.maf_leader = member
                     break
-        if self.godfather:
-            godfa_id, godfa_name = self.godfather.split(',', 1)
-            godfather_keyboard = bale.MenuKeyboardMarkup()
-            for member in self.alive_players:
-                name_id = member.split(',', 1)
-                current_row = (self.alive_players.index(member) + 3) // 3
-                godfather_keyboard.add(bale.MenuKeyboardButton(f"کشتن {name_id[1]}"),row=current_row)
-            await self.bot.send_message(godfa_id,"🔫 شکار شب را تا 20 ثانیه دیگر انتخاب کنید!",components=godfather_keyboard)
+        leader_id, leader_name = self.maf_leader.split(',', 1)
+        godfather_keyboard = bale.MenuKeyboardMarkup()
+        for member in self.alive_players:
+            name_id = member.split(',', 1)
+            current_row = (self.alive_players.index(member) + 3) // 3
+            godfather_keyboard.add(bale.MenuKeyboardButton(f"کشتن {name_id[1]}"),row=current_row)
+        await self.bot.send_message(leader_id,"🔫 شکار شب را تا 20 ثانیه دیگر انتخاب کنید!",components=godfather_keyboard)
 
     async def handle_kill(self, killer_chat_id, kill_input):
         async with self.vote_lock:
             killer_member = self.get_member_by_chat_id(killer_chat_id)
-            if killer_member != self.godfather:
+            if killer_member != self.maf_leader:
                 await self.bot.send_message(killer_chat_id, "❌ شما لیدر مافیا نیستید!")
                 return False
             if not self.godfa_phase:
@@ -492,9 +500,9 @@ class GameRoom:
         if self.maf_count == 0:
             await self.broadcast_message("🎉 بازی تمام شد! شهروندان برنده شدند!")
             return True
-        # elif self.maf_count >= self.cit_count:
-        #     await self.broadcast_message("😈 بازی تمام شد! مافیا برنده شد!")
-        #     return True
+        elif self.maf_count >= self.cit_count:
+            await self.broadcast_message("😈 بازی تمام شد! مافیا برنده شد!")
+            return True
         return False
     
     async def run_game(self):

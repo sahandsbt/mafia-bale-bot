@@ -50,7 +50,7 @@ async def on_message(bot: bale.Bot, message: bale.Message):
         logger.warning(f"Unsupported type of message sent. username: {message.from_user.chat_id} {message.from_user.last_name} id: {message.from_user.id}")
     else:
         chat_id = str(message.chat_id)
-        if message.text.startswith("رای به"):
+        if message.text.startswith("رای به") or message.text.startswith("کشتن") or message.text.startswith("اسنایپ") or message.text.startswith("نجات") or message.text.startswith("حفاظت از") or message.text.startswith("استعلام"):
             target_room = None
             for room_id, game_room in active_rooms.items():
                 for member in game_room.members:
@@ -61,7 +61,18 @@ async def on_message(bot: bale.Bot, message: bale.Message):
                 if target_room:
                     break
             if target_room and target_room.game_active:
-                await target_room.handle_vote(chat_id, message.text)
+                if message.text.startswith("رای به"):
+                    await target_room.handle_vote(chat_id, message.text)
+                elif message.text.startswith("کشتن"):
+                    await target_room.handle_kill(chat_id, message.text)
+                elif message.text.startswith("اسنایپ"):
+                    await target_room.handle_snipe(chat_id, message.text)
+                elif message.text.startswith("نجات"):
+                    await target_room.handle_save(chat_id, message.text)
+                elif message.text.startswith("حفاظت از"):
+                    await target_room.handle_prot(chat_id, message.text)
+                elif message.text.startswith("استعلام"):
+                    await target_room.handle_detect(chat_id, message.text)
             else:
                 await message.reply(
                     text="😒 توی بازی فعالی نیستی!\n\n💥 برای شروع بازی روی تشکیل گروه کلیک کن یا\n➖ /party\nرو بفرست😎",
@@ -103,7 +114,7 @@ async def on_message(bot: bale.Bot, message: bale.Message):
                         )
                     room_file.close()
         
-        elif message.text == "🎡 ساخت گروه 🎡":
+        elif message.text == "🎡 ساخت گروه 🎡" or message.text == "/party":
             await message.reply(
                 text=f"اینو برا دوستات بفرست:\nhttps://ble.ir/sasabot?start={message.from_user.id}",
                 components=leader_keyboard
@@ -136,9 +147,8 @@ async def on_message(bot: bale.Bot, message: bale.Message):
                         member_chat_id, _ = member.split(',', 1)
                         if member_chat_id == chat_id:
                             if game_room.game_active and message.text and not message.text.startswith('/'):
-                                handled = await game_room.handle_player_message(chat_id, message.text)
-                                if handled:
-                                    return
+                                await game_room.handle_player_message(chat_id, message.text)
+                                return
                             break
             await message.reply(text="😒 دستور نامعتبر")
             logger.warning(f"Unsupported command sent. username: {message.from_user.chat_id} {message.from_user.last_name} id: {message.from_user.id}")
