@@ -31,10 +31,10 @@ async def on_ready(bot: bale.Bot):
 active_rooms: Dict[str, GameRoom] = {}
 room_locks = {}
 
-async def room(members_list):
+async def room(bot, members_list):
     room_id = str(hash(tuple(members_list)))
     room_locks[room_id] = asyncio.Lock()
-    game_room = GameRoom(members_list)
+    game_room = GameRoom(bot, members_list)
     active_rooms[room_id] = game_room
     try:
         await game_room.run_game()
@@ -123,7 +123,7 @@ async def on_message(bot: bale.Bot, message: bale.Message):
                 members.append(memberlist[i][:-1])
             
             if len(members) > 1:
-                asyncio.create_task(room(members))
+                asyncio.create_task(room(bot, members))
                 await message.reply("بازی شروع شد! نقش‌ها در حال تخصیص هستند...")
             else:
                 await message.reply(text="حداقل تعداد برای شروع ۵ نفر است!")
