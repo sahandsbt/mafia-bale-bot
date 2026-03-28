@@ -27,7 +27,7 @@ async def on_ready(bot: bale.Bot):
     logger.info(f"Logged in as {bot.user.first_name} {bot.user.last_name} ID: {bot.user.id}")
     logger.info("Bot is now ready and online!")
 
-active_rooms = {}
+active_rooms: dict[str, GameRoom] = {}
 room_locks = {}
 
 async def room(members_list):
@@ -48,7 +48,7 @@ async def room(members_list):
 
 async def on_message(bot: bale.Bot, message: bale.Message):
     if (message.text == None):
-        logger.error(f"Unsupported type of message sent. username: {message.from_user.chat_id} {message.from_user.last_name} id: {message.from_user.id}")
+        logger.warning(f"Unsupported type of message sent. username: {message.from_user.chat_id} {message.from_user.last_name} id: {message.from_user.id}")
     else:
         chat_id = str(message.chat_id)
         if message.text.startswith("رای به"):
@@ -142,3 +142,4 @@ async def on_message(bot: bale.Bot, message: bale.Message):
                                     return
                             break
             await message.reply(text="😒 دستور نامعتبر")
+            logger.warning(f"Unsupported command sent. username: {message.from_user.chat_id} {message.from_user.last_name} id: {message.from_user.id}")

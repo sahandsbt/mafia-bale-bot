@@ -6,7 +6,7 @@ import asyncio
 from collections import defaultdict
 
 class GameRoom:
-    def __init__(self, bot: bale.Bot, members_list):
+    def __init__(self, bot: bale.Bot, members_list: list[str]):
         self.bot = bot
         self.members = members_list.copy()
         self.roles = {}
