@@ -193,7 +193,7 @@ class GameRoom:
     
     async def count_votes(self):
         if not self.votes:
-            await self.broadcast_message("⏭️ هیچ رایی ثبت نشد. به شب می‌رویم...")
+            await self.broadcast_message("⏭️ هیچ رایی ثبت نشد.")
             self.vote_phase = False
             self.votes.clear()
             self.execute_condidates.clear()
@@ -202,7 +202,7 @@ class GameRoom:
         for target_chat_id_list in self.votes.values():
             for target_chat_id in target_chat_id_list:
                 vote_count[target_chat_id] = vote_count.get(target_chat_id, 0) + 1
-        counts_str = ""
+        counts_str = "🔮 تعداد آرا:\n\n"
         for i in vote_count:
             vote_targ = self.get_member_by_chat_id(i).split(',', 1)
             counts_str += f"⚜ {vote_targ[1]}: {vote_count[i]} رای\n"
@@ -224,14 +224,16 @@ class GameRoom:
             self.votes.clear()
             self.execute_condidates.clear()
             self.vote_phase = False
-            await self.broadcast_message("🌙 شب شد...")
         else:
             for exe_vote in vote_count:
                 if int(vote_count[exe_vote]) >= ((len(self.alive_players) + 1) // 2):
                     self.execute_condidates.append(self.get_member_by_chat_id(exe_vote))
             self.vote_phase = False
             self.votes.clear()
-            await self.start_voting()
+            if self.execute_condidates:
+                await self.start_voting()
+            else:
+                self.broadcast_message("⚖️ کسی رای کافی نیاورد.")
 
     async def execution(self,target_member,night_mode=False):
         self.dead_players.add(target_member)
