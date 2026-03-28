@@ -8,8 +8,6 @@ import os
 from bot.models.gameroom import GameRoom
 from config import *
 
-bale
-
 # Keyboards
 start_keyboard = bale.MenuKeyboardMarkup()
 start_keyboard.add(bale.MenuKeyboardButton("🎡 ساخت گروه 🎡"),row=1)
