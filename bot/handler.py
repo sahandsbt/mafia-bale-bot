@@ -1,5 +1,6 @@
 """Message and event handling"""
 
+from typing import Dict
 import asyncio
 import bale
 import os
@@ -27,7 +28,7 @@ async def on_ready(bot: bale.Bot):
     logger.info(f"Logged in as {bot.user.first_name} {bot.user.last_name} ID: {bot.user.id}")
     logger.info("Bot is now ready and online!")
 
-active_rooms: dict[str, GameRoom] = {}
+active_rooms: Dict[str, GameRoom] = {}
 room_locks = {}
 
 async def room(members_list):

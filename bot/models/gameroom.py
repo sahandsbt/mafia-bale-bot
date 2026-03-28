@@ -4,9 +4,10 @@ import bale
 import random
 import asyncio
 from collections import defaultdict
+from typing import List
 
 class GameRoom:
-    def __init__(self, bot: bale.Bot, members_list: list[str]):
+    def __init__(self, bot: bale.Bot, members_list: List[str]):
         self.bot = bot
         self.members = members_list.copy()
         self.roles = {}

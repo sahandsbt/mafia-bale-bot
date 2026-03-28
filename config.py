@@ -15,6 +15,10 @@ DATA_DIR = os.path.join(BASE_DIR, 'data')
 LOG_DIR = os.path.join(DATA_DIR, 'logs')
 MEDIA_DIR = os.path.join(DATA_DIR, 'media')
 
+# Creating paths
+os.makedirs(LOG_DIR, exist_ok=True)
+os.makedirs(MEDIA_DIR, exist_ok=True)
+
 # Logging configuration
 logging.basicConfig(
     level=LOG_LEVEL,
