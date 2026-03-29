@@ -56,7 +56,7 @@ async def on_message(bot: bale.Bot, message: bale.Message):
                     for member in game_room.members:
                         member_chat_id, _ = member.split(',', 1)
                         if member_chat_id == chat_id:
-                            if game_room.game_active and message.text and not message.text.startswith('/'):
+                            if game_room.game_active and message.text:
                                 if message.text.startswith("رای به"):
                                     await game_room.handle_vote(chat_id, message.text)
                                 elif message.text.startswith("کشتن"):
@@ -82,33 +82,31 @@ async def on_message(bot: bale.Bot, message: bale.Message):
         else:
             start_code_list = message.text.split()
             start_code = start_code_list[1]
-            
             if start_code.startswith("party-") and (message.from_user.id != start_code[6:]) :
                 invite_code = start_code[6:]
-                room_file = open(f"{invite_code}.txt", 'r')
-                ids = room_file.readlines()
-                new_line = f"{message.from_user.chat_id},{message.from_user.first_name}\n"
-                if new_line not in ids:
-                    try:
+                try:
+                    room_file = open(f"{invite_code}.txt", 'r')
+                    ids = room_file.readlines()
+                    new_line = f"{message.from_user.chat_id},{message.from_user.first_name}\n"
+                    if new_line not in ids:
                         with open(f"{invite_code}.txt", 'a') as f:
                             f.write(f"{message.from_user.chat_id},{message.from_user.first_name}\n")
-                    except:
-                        await message.reply(text="☹ پیوستن به گروه با مشکل مواجه شد. لطفا به پشتیبانی اطلاع دهید.")
-                        return
-                    meschat_id = ids[0].split(',')
-                    memberlist = f"🔅{message.from_user.first_name}\n"
-                    for i in range(1, len(ids)):
-                        temp = ids[i].split(sep=',', maxsplit=1)
-                        await bot.send_message(temp[0],f"💠 {message.from_user.first_name} به گروه اضافه شد.")
-                        memberlist += f"🔅{temp[1]}"
-                    await bot.edit_message(
-                        meschat_id[0], meschat_id[1][:-1],
-                        f"⚔ اینو برا دوستات بفرست:\nhttps://ble.ir/sasabot?start={start_code}\n\n⏰ افراد اضافه شده:\n{memberlist}",
-                        components=leader_keyboard)
-                    await message.reply(
-                        text=f"🔥 به بازی اضافه شدی. وایستا تا بازی شروع شه.\n\n⏰ اعضای فعلی:\n{memberlist}",
-                        components=invited_keyboard)
-                room_file.close()
+                        meschat_id = ids[0].split(',')
+                        memberlist = f"🔅{message.from_user.first_name}\n"
+                        for i in range(1, len(ids)):
+                            temp = ids[i].split(sep=',', maxsplit=1)
+                            await bot.send_message(temp[0],f"💠 {message.from_user.first_name} به گروه اضافه شد.")
+                            memberlist += f"🔅{temp[1]}"
+                        await bot.edit_message(
+                            meschat_id[0], meschat_id[1][:-1],
+                            f"⚔ اینو برا دوستات بفرست:\nhttps://ble.ir/sasabot?start={start_code}\n\n⏰ افراد اضافه شده:\n{memberlist}",
+                            components=leader_keyboard)
+                        await message.reply(
+                            text=f"🔥 به بازی اضافه شدی. وایستا تا بازی شروع شه.\n\n⏰ اعضای فعلی:\n{memberlist}",
+                            components=invited_keyboard)
+                    room_file.close()
+                except:
+                    await message.reply(text="☹ پیوستن به گروه با مشکل مواجه شد. لطفا به پشتیبانی اطلاع دهید.")
     
     elif message.text == "🎡 ساخت گروه 🎡" or message.text == "/party":
         await message.reply(

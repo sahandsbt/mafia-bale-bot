@@ -233,7 +233,7 @@ class GameRoom:
             if self.execute_condidates:
                 await self.start_voting()
             else:
-                self.broadcast_message("⚖️ کسی رای کافی نیاورد.")
+                await self.broadcast_message("⚖️ کسی رای کافی نیاورد.")
 
     async def execution(self,target_member,night_mode=False):
         self.dead_players.add(target_member)
@@ -497,11 +497,16 @@ class GameRoom:
         await self.broadcast_message(kills)
             
     async def check_game_end(self):
+        roles_str = "💡 نقش ها:\n"
+        if self.maf_count == 0 or self.maf_count >= self.cit_count:
+            for member in self.roles:
+                member_name = member.split(',',1)
+                roles_str += f"🔹 {member_name[1]}: {self.roles[member]}\n"
         if self.maf_count == 0:
-            await self.broadcast_message("🎉 بازی تمام شد! شهروندان برنده شدند!")
+            await self.broadcast_message(f"🎉 بازی تمام شد! شهروندان برنده شدند!\n\n{roles_str}")
             return True
         elif self.maf_count >= self.cit_count:
-            await self.broadcast_message("😈 بازی تمام شد! مافیا برنده شد!")
+            await self.broadcast_message(f"😈 بازی تمام شد! مافیا برنده شد!\n\n{roles_str}")
             return True
         return False
     
