@@ -16,7 +16,6 @@ DATA_DIR = os.path.join(BASE_DIR, 'data')
 MEDIA_DIR = os.path.join(DATA_DIR, 'media')
 
 # Creating paths
-os.makedirs(TMP_DIR, exist_ok=True)
 os.makedirs(MEDIA_DIR, exist_ok=True)
 
 # Logging configuration
@@ -35,6 +34,6 @@ if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN is required for the bot to run")
 
 # Export constatns
-__all__ = ["BOT_TOKEN", "BASE_DIR", "DATA_DIR", "TMP_DIR", "MEDIA_DIR", "logger"]
+__all__ = ["BOT_TOKEN", "BASE_DIR", "DATA_DIR", "MEDIA_DIR", "logger"]
 
 logger.info("Configuration finished successfully.")
