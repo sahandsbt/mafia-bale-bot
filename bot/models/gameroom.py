@@ -41,39 +41,40 @@ class GameRoom:
         
     async def assign_roles(self):
         members = self.members.copy()
+        all_roles_str = "➰ نقش‌های داخل بازی: "
         special_roles = ['کارآگاه','دکتر','پدرخوانده','اسنایپر','دکتر مافیا']
         for role_name in special_roles:
             if members:
                 ind = random.randint(0, len(members) - 1)
                 self.roles[members[ind]] = role_name
+                all_roles_str += f"{role_name}، "
                 if role_name in ['پدرخوانده','دکتر مافیا']:
                     self.maf_count +=1
                     self.mafia_team.append(members[ind])
                 else:
                     self.cit_count +=1
                 members.pop(ind)
-        maf_count = len(members) // 3
-        self.maf_count += maf_count
-        for _ in range(maf_count):
-            if members:
-                maf_ind = random.randint(0, len(members) - 1)
-                self.roles[members[maf_ind]] = 'مافیای ساده'
-                self.mafia_team.append(members[maf_ind])
-                members.pop(maf_ind)
+        simple_maf_count = 0
+        if len(members) > 3:
+            simple_maf_count = (len(members) - 1) // 3
+            all_roles_str += f"{str(simple_maf_count)} × مافیای ساده و "
+        self.maf_count += simple_maf_count
+        for _ in range(simple_maf_count):
+            maf_ind = random.randint(0, len(members) - 1)
+            self.roles[members[maf_ind]] = 'مافیای ساده'
+            self.mafia_team.append(members[maf_ind])
+            members.pop(maf_ind)
         self.cit_count += len(members)
+        if len(members) > 0:
+            all_roles_str += f"{str(len(members))} × شهروند ساده."
         for member in members:
             self.roles[member] = 'شهروند ساده'
         for member in self.members:
             chat_id = member.split(',', 1)
-            await self.bot.send_message(chat_id[0], f"🎭 بازی شروع شد! نقش شما {self.roles[member]} است.",components=None)
+            await self.bot.send_message(chat_id[0], f"🎭 بازی شروع شد! نقش شما {self.roles[member]} است.\n\n{all_roles_str}",components=None)
         role_count = {}
         for role in self.roles.values():
             role_count[role] = role_count.get(role, 0) + 1
-        
-        # summary = "📊 خلاصه نقش‌ها:\n"
-        # for role, count in role_count.items():
-        #     summary += f"• {role}: {count} نفر\n"
-        # await self.broadcast_message(summary)
     
     async def broadcast_message(self, message, exclude_talker = False, exclude_dead = False):
         for member in self.members:

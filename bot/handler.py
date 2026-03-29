@@ -27,6 +27,7 @@ async def on_ready(bot: bale.Bot):
     logger.info("Bot is now ready and online!")
 
 active_rooms: Dict[str, GameRoom] = {}
+waiting_lobby = {}
 room_locks = {}
 
 async def room(bot, members_list):
@@ -73,7 +74,48 @@ async def on_message(bot: bale.Bot, message: bale.Message):
                                     await game_room.handle_player_message(chat_id, message.text)
                                 return
                             break
-
+    
+    if message.text == "🚪 خروج 🚪" and (message.from_user.chat_id in waiting_lobby):
+        inviter = waiting_lobby[message.from_user.chat_id]
+        room_file = open(f"{inviter}.txt", 'r')
+        ids = room_file.readlines()
+        new_line = f"{message.from_user.chat_id},{message.from_user.first_name}\n"
+        ind = ids.index(new_line)
+        ids.pop(ind)
+        room_file.close()
+        ids_str = ""
+        for i in ids:
+            ids_str += i
+        with open(f"{inviter}.txt", "w", encoding="utf-8") as f:
+            f.write(ids_str)
+        waiting_lobby.pop(message.from_user.chat_id)
+        await message.reply(text="🚦 از گروه خارج شدید.",components=start_keyboard)
+        return
+    
+    if message.from_user.chat_id in waiting_lobby:
+        if waiting_lobby[message.from_user.chat_id] != message.from_user.id:
+            await message.reply(text="‼ شما در یک انتظار شروع بازی هستید! ابتدا از گروه خارج شوید.")
+            return
+    
+    if message.text == "🎮 شروع بازی 🎮":
+        members = [f"{message.from_user.chat_id},{message.from_user.first_name}"]
+        with open(f"{message.from_user.id}.txt", 'r', encoding="utf-8") as f:
+            memberlist = f.readlines()
+        for i in range(1, len(memberlist)):
+            members.append(memberlist[i][:-1])
+        if len(members) > 1: #=======================================( 3 )
+            for member in members:
+                member_chat_id = member.split(',',1)
+                waiting_lobby.pop(member_chat_id[0])
+            os.remove(f"{message.from_user.id}.txt")
+            asyncio.create_task(room(bot, members))
+        else:
+            await message.reply(text="حداقل تعداد برای شروع 4 نفر است!")
+    
+    if message.from_user.chat_id in waiting_lobby:
+        await message.reply(text="‼ شما لیدر گروه هستید! ابتدا بازی را شروع کنید.")
+        return
+    
     if message.text.startswith("/start"):
         if message.text == "/start":
             await message.reply(
@@ -89,7 +131,7 @@ async def on_message(bot: bale.Bot, message: bale.Message):
                     ids = room_file.readlines()
                     new_line = f"{message.from_user.chat_id},{message.from_user.first_name}\n"
                     if new_line not in ids:
-                        with open(f"{invite_code}.txt", 'a') as f:
+                        with open(f"{invite_code}.txt", 'a', encoding="utf-8") as f:
                             f.write(f"{message.from_user.chat_id},{message.from_user.first_name}\n")
                         meschat_id = ids[0].split(',')
                         memberlist = f"🔅{message.from_user.first_name}\n"
@@ -104,6 +146,7 @@ async def on_message(bot: bale.Bot, message: bale.Message):
                         await message.reply(
                             text=f"🔥 به بازی اضافه شدی. وایستا تا بازی شروع شه.\n\n⏰ اعضای فعلی:\n{memberlist}",
                             components=invited_keyboard)
+                        waiting_lobby[message.from_user.chat_id] = invite_code
                     room_file.close()
                 except:
                     await message.reply(text="☹ پیوستن به گروه با مشکل مواجه شد. لطفا به پشتیبانی اطلاع دهید.")
@@ -112,8 +155,9 @@ async def on_message(bot: bale.Bot, message: bale.Message):
         await message.reply(
             text=f"⚔ اینو برا دوستات بفرست:\nhttps://ble.ir/sasabot?start=party-{message.from_user.id}",
             components=leader_keyboard)
-        with open(f"{message.from_user.id}.txt", 'w') as f:
+        with open(f"{message.from_user.id}.txt", 'w', encoding="utf-8") as f:
             f.write(f"{message.chat_id},{int(message.message_id) + 1}\n")
+        waiting_lobby[message.from_user.chat_id] = message.from_user.id
     
     elif message.text == "☎ پشتیبانی" or message.text == "/support":
         await message.reply(text="📣 در صورت بروز هرگونه مشکل فنی خواهشمندیم به\n🆔 @sahandsbt\nدر بله یا تلگرام پیام دهید.")
@@ -121,22 +165,6 @@ async def on_message(bot: bale.Bot, message: bale.Message):
     elif message.text == "❓ راهنما" or message.text == "/help":
         await message.reply(text="😑 داریم روش کار میکنیم.")
      
-    elif message.text == "🎮 شروع بازی 🎮":
-        members = [f"{message.from_user.chat_id},{message.from_user.first_name}"]
-        with open(f"{message.from_user.id}.txt", 'r') as f:
-            memberlist = f.readlines()
-        os.remove(f"{message.from_user.id}.txt")
-        for i in range(1, len(memberlist)):
-            members.append(memberlist[i][:-1])
-        if len(members) > 1: #=======================================( 3 )
-            asyncio.create_task(room(bot, members))
-            await message.reply("🎆 بازی شروع شد 🎆")
-        else:
-            await message.reply(text="حداقل تعداد برای شروع 4 نفر است!")
-    
-    elif message.text == "🚪 خروج 🚪":
-        await message.reply(text="😑 داریم روش کار میکنیم.")
-    
     else:
         await message.reply(text="😒 دستور نامعتبر!")
         logger.warning(f"Unsupported command sent. | Name: {message.from_user.first_name} - ID: {message.from_user.id}")
