@@ -513,7 +513,7 @@ class GameRoom:
         await asyncio.sleep(15)
         await self.count_inquire()
     
-    async def handle_inquire(self, inquire_chat_id, inquire_input):
+    async def handle_inquire(self, inquire_chat_id):
         async with self.vote_lock:
             inquire_member = self.get_member_by_chat_id(inquire_chat_id)
             if not self.inquire_phase:

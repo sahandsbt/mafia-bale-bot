@@ -71,7 +71,7 @@ async def on_message(bot: bale.Bot, message: bale.Message):
                                 elif message.text.startswith("استعلام"):
                                     await game_room.handle_detect(chat_id, message.text)
                                 elif message.text.startswith("گرفتن استعلام کشته ها"):
-                                    await game_room.handle_inquire(chat_id, message.text)
+                                    await game_room.handle_inquire(chat_id)
                                 else:
                                     await game_room.handle_player_message(chat_id, message.text)
                                 return
