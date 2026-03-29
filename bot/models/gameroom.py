@@ -25,6 +25,7 @@ class GameRoom:
         self.doctor_phase = False
         self.lecter_phase = False
         self.detect_phase = False
+        self.inquire_phase = False
         self.godfather = ""
         self.maf_leader = ""
         self.doctor = ""
@@ -34,6 +35,9 @@ class GameRoom:
         self.votes = defaultdict(set)
         self.vote_lock = asyncio.Lock()
         self.dead_players = set()
+        self.inquired_roles = []
+        self.inquire_vote = []
+        self.left_inquire = 2
         self.alive_players = self.members.copy()
         self.mafia_team = []
         self.night_target = ""
@@ -67,6 +71,8 @@ class GameRoom:
         self.cit_count += len(members)
         if len(members) > 0:
             all_roles_str += f"{str(len(members))} × شهروند ساده."
+        else:
+            all_roles_str = all_roles_str[:-2] + "."
         for member in members:
             self.roles[member] = 'شهروند ساده'
         for member in self.members:
@@ -258,22 +264,32 @@ class GameRoom:
             if member in self.mafia_team:
                 await self.bot.send_message(chat_id[0], f"🎩 گروه مافیا 60 ثانیه فرصت مشورت و ارسال پیام به یکدیگر دارند.\n🔔 اعضای مافیا:\n{mafia_team_str}")
             else:
-                await self.bot.send_message(chat_id[0], "🎩 گروه مافیا 60 ثانیه فرصت مشورت و ارسال پیام به یکدیگر دارند.")
+                await self.bot.send_message(chat_id[0], "🎩 گروه مافیا در حال مشورت هستند.")
         self.mafia_phase = True
-        await asyncio.sleep(60) #=============================(60)
+        await asyncio.sleep(60)
         if not self.first_day:
             await self.mafia_kill()
-            await asyncio.sleep(20) #=============================(20)
-            await self.sniper_snipe()
-            await asyncio.sleep(20) #=============================(20)
-            await self.doctor_save()
-            await asyncio.sleep(20) #=============================(20)
-            await self.lecter_prot()
-            await asyncio.sleep(20) #=============================(20)
-            await self.detective_ask()
-            await asyncio.sleep(20) #=============================(20)
+            await asyncio.sleep(20)
+            self.godfa_phase = False
+            if 'اسنایپر' not in self.inquired_roles:
+                await self.sniper_snipe()
+                await asyncio.sleep(20)
+                self.snipe_phase = False
+            if 'دکتر' not in self.inquired_roles:
+                await self.doctor_save()
+                await asyncio.sleep(20)
+                self.doctor_phase = False
+            if 'دکتر مافیا' not in self.inquired_roles:
+                await self.lecter_prot()
+                await asyncio.sleep(20)
+                self.lecter_phase = False
+            if 'کارآگاه' not in self.inquired_roles:
+                await self.detective_ask()
+                await asyncio.sleep(20)
+                self.detect_phase = False
             await self.night_events()
-            await self.day_inquire()
+            if self.left_inquire > 0:
+                await self.day_inquire()
         else:
             self.mafia_phase = False
             await self.broadcast_message("☀️ صبح شد!")
@@ -305,6 +321,8 @@ class GameRoom:
             name_id = member.split(',', 1)
             current_row = (self.alive_players.index(member) + 3) // 3
             godfather_keyboard.add(bale.MenuKeyboardButton(f"کشتن {name_id[1]}"),row=current_row)
+            if member != self.maf_leader:
+                await self.bot.send_message(name_id[0],"🐱‍👤 مافیا آماده شلیک است!")
         await self.bot.send_message(leader_id,"🔫 شکار شب را تا 20 ثانیه دیگر انتخاب کنید!",components=godfather_keyboard)
 
     async def handle_kill(self, killer_chat_id, kill_input):
@@ -329,12 +347,14 @@ class GameRoom:
             return False
         
     async def sniper_snipe(self):
-        self.godfa_phase = False
         self.snipe_phase = True
         self.sniper = ""
         for member in self.alive_players:
             if self.roles[member] == 'اسنایپر':
                 self.sniper = member
+        for member in self.alive_players:
+            if member != self.detective:
+                await self.bot.send_message(name_id[0],"🏹 اسنایپر بیدار شد!")
         if self.sniper:
             sniper_id, sniper_name = self.sniper.split(',', 1)
             sniper_keyboard = bale.MenuKeyboardMarkup()
@@ -367,12 +387,14 @@ class GameRoom:
             return False
     
     async def doctor_save(self):
-        self.snipe_phase = False
         self.doctor_phase = True
         self.doctor = ""
         for member in self.alive_players:
             if self.roles[member] == 'دکتر':
                 self.doctor = member
+        for member in self.alive_players:
+            if member != self.detective:
+                await self.bot.send_message(name_id[0],"💞 دکتر بیدار شد!")
         if self.doctor:
             doci_id, doci_name = self.doctor.split(',', 1)
             doctor_keyboard = bale.MenuKeyboardMarkup()
@@ -405,12 +427,14 @@ class GameRoom:
             return False
     
     async def lecter_prot(self):
-        self.doctor_phase = False
         self.lecter_phase = True
         self.lecter = ""
         for member in self.alive_players:
             if self.roles[member] == 'دکتر مافیا':
                 self.lecter = member
+        for member in self.alive_players:
+            if member != self.detective:
+                await self.bot.send_message(name_id[0],"💉 دکتر مافیا بیدار شد!")
         if self.lecter:
             doci_id, doci_name = self.lecter.split(',', 1)
             lecter_keyboard = bale.MenuKeyboardMarkup()
@@ -441,12 +465,14 @@ class GameRoom:
             return False
         
     async def detective_ask(self):
-        self.lecter_phase = False
         self.detect_phase = True
         self.detective = ""
         for member in self.alive_players:
             if self.roles[member] == 'کارآگاه':
                 self.detective = member
+        for member in self.alive_players:
+            if member != self.detective:
+                await self.bot.send_message(name_id[0],"🕵️‍♂️ کارآگاه بیدار شد!")
         if self.detective:
             detec_id, detec_name = self.detective.split(',', 1)
             detective_keyboard = bale.MenuKeyboardMarkup()
@@ -476,14 +502,50 @@ class GameRoom:
                     return True
             await self.bot.send_message(detect_chat_id, "❌ لطفا از گزینه ها انتخاب کنید")
             return False
-        
+    
     async def day_inquire(self):
-        pass
-        # role = self.roles.get(target_member, "ناشناخته")
-        # self.dead_players.add(target_member)
+        inquire_keyboard = bale.MenuKeyboardMarkup()
+        inquire_keyboard.add(bale.MenuKeyboardButton("گرفتن استعلام کشته ها"))
+        self.inquire_phase = True
+        for member in self.alive_players:
+            chat_id = member.split(',', 1)
+            await self.bot.send_message(chat_id[0], f"🧿 برای رای به گرفتن استعلام کشته ها 15 ثانیه فرصت دارید. تنها دوبار میتوان استعلام گرفت!",components=inquire_keyboard)
+        await asyncio.sleep(15)
+        await self.count_inquire()
+    
+    async def handle_inquire(self, inquire_chat_id, inquire_input):
+        async with self.vote_lock:
+            inquire_member = self.get_member_by_chat_id(inquire_chat_id)
+            if not self.inquire_phase:
+                await self.bot.send_message(inquire_chat_id, "❌ الان وقت استعلام نیست!")
+                return False
+            if not inquire_member or inquire_member in self.dead_players:
+                await self.bot.send_message(inquire_chat_id, "❌ شما مرده‌اید و نمی‌توانید رای دهید!")
+                return False
+            if inquire_member in self.inquire_vote:
+                await self.bot.send_message(inquire_chat_id, "❌ شما قبلا رای دادید!")
+                return False
+            self.inquire_vote.append(inquire_member)
+            await self.bot.send_message(inquire_chat_id, "✅ رای شما ثبت شد.")
+    
+    async def count_inquire(self):
+        counts_str = f"🏳 تعداد آرای موافق: {len(self.inquire_vote)}/{len(self.alive_players)}\n\n🖐 افراد موافق: "
+        for i in self.inquire_vote:
+            inq_targ = i.split(',', 1)
+            counts_str += f"{inq_targ[1]}، "
+        await self.broadcast_message(counts_str[:-2])
+        if len(self.inquire_vote) >= ((len(self.alive_players) + 1) // 2):
+            self.left_inquire -= 1
+            left_str = "🔮 نقش‌های بیرون بازی: "
+            self.inquired_roles.clear()
+            for i in self.dead_players:
+                left_str += f"{self.roles[i]}، "
+                self.inquired_roles.append[self.roles[i]]
+            await self.broadcast_message(left_str)
+        self.inquire_phase = False
+        self.inquire_vote.clear()
         
     async def night_events(self):
-        self.detect_phase = False
         kills = "☀️ صبح شد!\n\n🖤 کشته های شب:\n"
         if self.night_target:
             temp = self.night_target.split(',',1)
