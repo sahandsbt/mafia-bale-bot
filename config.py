@@ -11,6 +11,7 @@ LOG_LEVEL = os.getenv("LOG_LEVEL")
 
 # Paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+TMP_DIR = os.path.join(BASE_DIR, 'tmp')
 DATA_DIR = os.path.join(BASE_DIR, 'data')
 MEDIA_DIR = os.path.join(DATA_DIR, 'media')
 

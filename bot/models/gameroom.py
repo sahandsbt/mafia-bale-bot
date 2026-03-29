@@ -41,39 +41,40 @@ class GameRoom:
         
     async def assign_roles(self):
         members = self.members.copy()
+        all_roles_str = "➰ نقش‌های داخل بازی: "
         special_roles = ['کارآگاه','دکتر','پدرخوانده','اسنایپر','دکتر مافیا']
         for role_name in special_roles:
-            print(len(members))
-            ind = random.randint(0, len(members) - 1)
-            self.roles[members[ind]] = role_name
-            if role_name in ['پدرخوانده','دکتر مافیا']:
-                self.maf_count +=1
-                self.mafia_team.append(members[ind])
-            else:
-                self.cit_count +=1
-            members.pop(ind)
-        maf_count = len(members) // 3
-        self.maf_count += maf_count
-        for _ in range(maf_count):
             if members:
-                maf_ind = random.randint(0, len(members) - 1)
-                self.roles[members[maf_ind]] = 'مافیای ساده'
-                self.mafia_team.append(members[maf_ind])
-                members.pop(maf_ind)
+                ind = random.randint(0, len(members) - 1)
+                self.roles[members[ind]] = role_name
+                all_roles_str += f"{role_name}، "
+                if role_name in ['پدرخوانده','دکتر مافیا']:
+                    self.maf_count +=1
+                    self.mafia_team.append(members[ind])
+                else:
+                    self.cit_count +=1
+                members.pop(ind)
+        simple_maf_count = 0
+        if len(members) > 3:
+            simple_maf_count = (len(members) - 1) // 3
+            all_roles_str += f"{str(simple_maf_count)} × مافیای ساده و "
+        self.maf_count += simple_maf_count
+        for _ in range(simple_maf_count):
+            maf_ind = random.randint(0, len(members) - 1)
+            self.roles[members[maf_ind]] = 'مافیای ساده'
+            self.mafia_team.append(members[maf_ind])
+            members.pop(maf_ind)
         self.cit_count += len(members)
+        if len(members) > 0:
+            all_roles_str += f"{str(len(members))} × شهروند ساده."
         for member in members:
             self.roles[member] = 'شهروند ساده'
         for member in self.members:
             chat_id = member.split(',', 1)
-            await self.bot.send_message(chat_id[0], f"🎭 بازی شروع شد! نقش شما {self.roles[member]} است.",components=None)
+            await self.bot.send_message(chat_id[0], f"🎭 بازی شروع شد! نقش شما {self.roles[member]} است.\n\n{all_roles_str}",components=None)
         role_count = {}
         for role in self.roles.values():
             role_count[role] = role_count.get(role, 0) + 1
-        
-        # summary = "📊 خلاصه نقش‌ها:\n"
-        # for role, count in role_count.items():
-        #     summary += f"• {role}: {count} نفر\n"
-        # await self.broadcast_message(summary)
     
     async def broadcast_message(self, message, exclude_talker = False, exclude_dead = False):
         for member in self.members:
@@ -193,7 +194,7 @@ class GameRoom:
     
     async def count_votes(self):
         if not self.votes:
-            await self.broadcast_message("⏭️ هیچ رایی ثبت نشد. به شب می‌رویم...")
+            await self.broadcast_message("⏭️ هیچ رایی ثبت نشد.")
             self.vote_phase = False
             self.votes.clear()
             self.execute_condidates.clear()
@@ -202,7 +203,7 @@ class GameRoom:
         for target_chat_id_list in self.votes.values():
             for target_chat_id in target_chat_id_list:
                 vote_count[target_chat_id] = vote_count.get(target_chat_id, 0) + 1
-        counts_str = ""
+        counts_str = "🔮 تعداد آرا:\n\n"
         for i in vote_count:
             vote_targ = self.get_member_by_chat_id(i).split(',', 1)
             counts_str += f"⚜ {vote_targ[1]}: {vote_count[i]} رای\n"
@@ -224,14 +225,16 @@ class GameRoom:
             self.votes.clear()
             self.execute_condidates.clear()
             self.vote_phase = False
-            await self.broadcast_message("🌙 شب شد...")
         else:
             for exe_vote in vote_count:
                 if int(vote_count[exe_vote]) >= ((len(self.alive_players) + 1) // 2):
                     self.execute_condidates.append(self.get_member_by_chat_id(exe_vote))
             self.vote_phase = False
             self.votes.clear()
-            await self.start_voting()
+            if self.execute_condidates:
+                await self.start_voting()
+            else:
+                await self.broadcast_message("⚖️ کسی رای کافی نیاورد.")
 
     async def execution(self,target_member,night_mode=False):
         self.dead_players.add(target_member)
@@ -495,11 +498,16 @@ class GameRoom:
         await self.broadcast_message(kills)
             
     async def check_game_end(self):
+        roles_str = "💡 نقش ها:\n"
+        if self.maf_count == 0 or self.maf_count >= self.cit_count:
+            for member in self.roles:
+                member_name = member.split(',',1)
+                roles_str += f"🔹 {member_name[1]}: {self.roles[member]}\n"
         if self.maf_count == 0:
-            await self.broadcast_message("🎉 بازی تمام شد! شهروندان برنده شدند!")
+            await self.broadcast_message(f"🎉 بازی تمام شد! شهروندان برنده شدند!\n\n{roles_str}")
             return True
         elif self.maf_count >= self.cit_count:
-            await self.broadcast_message("😈 بازی تمام شد! مافیا برنده شد!")
+            await self.broadcast_message(f"😈 بازی تمام شد! مافیا برنده شد!\n\n{roles_str}")
             return True
         return False
     
