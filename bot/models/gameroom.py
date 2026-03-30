@@ -28,7 +28,7 @@ class GameRoom:
         self.inquire_phase = False
         self.chaos_phase = False
         self.handshake_phase = False
-        self.chaos_win = 0
+        self.chaos_win = []
         self.godfather = ""
         self.maf_leader = ""
         self.doctor = ""
@@ -145,7 +145,6 @@ class GameRoom:
                 temp_chat_id = member.split(',', 1)
                 if member != member_str:
                     await self.bot.send_message(temp_chat_id[0], f"📢 {talker[1]}: {message}")
-                    return True
             return True
         await self.bot.send_message(chat_id, "❌ نوبت صحبت شما نیست!")
     
@@ -579,7 +578,7 @@ class GameRoom:
         for member in self.dead_players:
             member_chat_id = member.split(',',1)
             await self.bot.send_message(member_chat_id[0],"💣 آشوب شروع شد 💣")
-        self.broadcast_message("💣 آشوب شروع شد 💣\n\n👁 120 ثانیه فرصت دارید دارید همزمان گفتگو کنید.",exclude_dead=True)
+        await self.broadcast_message("💣 آشوب شروع شد 💣\n\n👁 120 ثانیه فرصت دارید دارید همزمان گفتگو کنید.",exclude_dead=True)
         await asyncio.sleep(120)
         await self.start_handshake()
 
@@ -594,13 +593,14 @@ class GameRoom:
             chat_id = member.split(',', 1)
             if member in self.mafia_team:
                 await self.bot.send_message(chat_id[0], "👾 منتظر نتیجه دست دادن بمانید")
-            await self.bot.send_message(chat_id[0], "🤝 30 ثانیه فرصت دارید با شهروند دیگر دست دهید. بادقت انتخاب کنید!\n❗ اگر در این فرصت دست ندهید مافیا برنده میشود.",components=handshake_keyboard)
+            else:
+                await self.bot.send_message(chat_id[0], "🤝 30 ثانیه فرصت دارید با شهروند دیگر دست دهید. بادقت انتخاب کنید!\n❗ اگر در این فرصت دست ندهید مافیا برنده میشود.",components=handshake_keyboard)
         await asyncio.sleep(30)
         roles_str = "💡 نقش ها:\n"
         for member in self.roles:
             member_name = member.split(',',1)
             roles_str += f"🔹 {member_name[1]}: {self.roles[member]}\n"
-        if self.chaos_win < 2:
+        if len(self.chaos_win) < 2:
             await self.broadcast_message(f"💔 همه شهروندان دست ندادند!\n\n😈 بازی تمام شد! مافیا برنده شد!\n\n{roles_str}")
         else:
             await self.broadcast_message(f"🔥 شهروندان با هم دست دادند!\n\n🎉 بازی تمام شد! شهروندان برنده شدند!\n\n{roles_str}")
@@ -615,10 +615,16 @@ class GameRoom:
             if not shaker_member or shaker_member in self.dead_players:
                 await self.bot.send_message(voter_chat_id, "❌ شما مرده‌اید و نمی‌توانید دست دهید!")
                 return False
+            if shaker_member in self.chaos_win:
+                await self.bot.send_message(voter_chat_id, "❌ شما قبلا دست دادید!")
+                return False
             for i in self.alive_players:
                 target_chat_id, target_name = i.split(',', 1)
                 if target_name.rstrip() == vote_input[12:]:
                     shaker_id, shaker_name = shaker_member.split(',',1)
+                    if shaker_member == i:
+                        await self.bot.send_message(voter_chat_id, "❌ نمیتوانید با خودتان دست دهید!")
+                        return False
                     if i in self.mafia_team:
                         roles_str = "💡 نقش ها:\n"
                         for member in self.roles:
@@ -627,7 +633,7 @@ class GameRoom:
                         await self.broadcast_message(f"💔 {shaker_name} با مافیا دست داد!\n\n😈 بازی تمام شد! مافیا برنده شد!\n\n{roles_str}")
                         self.game_active = False
                     else:
-                        self.chaos_win += 1
+                        self.chaos_win.append(shaker_member)
                         await self.bot.send_message(shaker_id,f"🎯 ثبت شد.")
                     return True
             await self.bot.send_message(voter_chat_id, "❌ نامعتبر! لطفا از گزینه ها انتخاب کنید")
