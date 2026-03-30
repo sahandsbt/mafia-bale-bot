@@ -15,10 +15,11 @@ start_keyboard.add(bale.MenuKeyboardButton("❓ راهنما"),row=2)
 start_keyboard.add(bale.MenuKeyboardButton("☎ پشتیبانی"),row=2)
 
 leader_keyboard = bale.MenuKeyboardMarkup()
-leader_keyboard.add(bale.MenuKeyboardButton("🎮 شروع بازی 🎮"),row=1)
+leader_keyboard.add(bale.MenuKeyboardButton("🎮 شروع بازی 🎮"))
+leader_keyboard.add(bale.MenuKeyboardButton("🛑 حذف گروه 🛑"))
 
 invited_keyboard = bale.MenuKeyboardMarkup()
-invited_keyboard.add(bale.MenuKeyboardButton("🚪 خروج 🚪"),row=1)
+invited_keyboard.add(bale.MenuKeyboardButton("🚪 خروج 🚪"))
 
 null_keyboard = bale.MenuKeyboardMarkup()
 
@@ -117,6 +118,22 @@ async def on_message(bot: bale.Bot, message: bale.Message):
             await message.reply(text="حداقل تعداد برای شروع 4 نفر است!")
         return
     
+    if message.text == "🛑 حذف گروه 🛑":
+        members = [message.from_user.chat_id]
+        memberlist = []
+        try:
+            with open(f"{message.from_user.id}.txt", 'r', encoding="utf-8") as f:
+                memberlist = f.readlines()
+        except:
+            await message.reply("⚠ شما لیدر گروهی نیستید!")
+            return
+        for i in memberlist:
+            chatid = i.split(',',1)
+            waiting_lobby.pop(chatid[0])
+            await bot.send_message(chatid[0],"📛 گروه توسط لیدر حذف شد!",components=start_keyboard)
+        os.remove(f"{message.from_user.id}.txt")
+        return
+    
     if message.from_user.chat_id in waiting_lobby:
         await message.reply(text="‼ شما لیدر گروه هستید! ابتدا بازی را شروع کنید.")
         return
@@ -168,7 +185,7 @@ async def on_message(bot: bale.Bot, message: bale.Message):
         await message.reply(text="📣 در صورت بروز هرگونه مشکل فنی خواهشمندیم به\n🆔 @sahandsbt\nدر بله یا تلگرام پیام دهید.")
     
     elif message.text == "❓ راهنما" or message.text == "/help":
-        await message.reply(text="😑 داریم روش کار میکنیم.")
+        await message.reply(text="😑 داریم روش کار میکنیم. (مافیا راهنما میخواد آخه؟)")
      
     else:
         await message.reply(text="😒 دستور نامعتبر!")
