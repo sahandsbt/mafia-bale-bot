@@ -113,6 +113,7 @@ async def on_message(bot: bale.Bot, message: bale.Message):
             asyncio.create_task(room(bot, members))
         else:
             await message.reply(text="حداقل تعداد برای شروع 4 نفر است!")
+        return
     
     if message.from_user.chat_id in waiting_lobby:
         await message.reply(text="‼ شما لیدر گروه هستید! ابتدا بازی را شروع کنید.")
