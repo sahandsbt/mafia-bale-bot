@@ -354,6 +354,7 @@ class GameRoom:
                 self.sniper = member
         for member in self.alive_players:
             if member != self.detective:
+                name_id = member.split(',', 1)
                 await self.bot.send_message(name_id[0],"🏹 اسنایپر بیدار شد!")
         if self.sniper:
             sniper_id, sniper_name = self.sniper.split(',', 1)
@@ -394,6 +395,7 @@ class GameRoom:
                 self.doctor = member
         for member in self.alive_players:
             if member != self.detective:
+                name_id = member.split(',', 1)
                 await self.bot.send_message(name_id[0],"💞 دکتر بیدار شد!")
         if self.doctor:
             doci_id, doci_name = self.doctor.split(',', 1)
@@ -434,6 +436,7 @@ class GameRoom:
                 self.lecter = member
         for member in self.alive_players:
             if member != self.detective:
+                name_id = member.split(',', 1)
                 await self.bot.send_message(name_id[0],"💉 دکتر مافیا بیدار شد!")
         if self.lecter:
             doci_id, doci_name = self.lecter.split(',', 1)
@@ -472,6 +475,7 @@ class GameRoom:
                 self.detective = member
         for member in self.alive_players:
             if member != self.detective:
+                name_id = member.split(',', 1)
                 await self.bot.send_message(name_id[0],"🕵️‍♂️ کارآگاه بیدار شد!")
         if self.detective:
             detec_id, detec_name = self.detective.split(',', 1)
