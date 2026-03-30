@@ -60,6 +60,8 @@ async def on_message(bot: bale.Bot, message: bale.Message):
                             if game_room.game_active and message.text:
                                 if message.text.startswith("رای به"):
                                     await game_room.handle_vote(chat_id, message.text)
+                                elif message.text.startswith("دست دادن با"):
+                                    await game_room.handle_handshake(chat_id, message.text)
                                 elif message.text.startswith("کشتن"):
                                     await game_room.handle_kill(chat_id, message.text)
                                 elif message.text.startswith("اسنایپ"):

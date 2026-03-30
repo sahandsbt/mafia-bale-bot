@@ -26,6 +26,9 @@ class GameRoom:
         self.lecter_phase = False
         self.detect_phase = False
         self.inquire_phase = False
+        self.chaos_phase = False
+        self.handshake_phase = False
+        self.chaos_win = 0
         self.godfather = ""
         self.maf_leader = ""
         self.doctor = ""
@@ -129,10 +132,18 @@ class GameRoom:
             await self.broadcast_message(f"📢 {self.current_talker_name}: {message}",exclude_talker=True)
             return True
         if self.mafia_phase and (member_str in self.mafia_team):
+            talker = member_str.split(',', 1)
             for member in self.mafia_team:
                 temp_chat_id = member.split(',', 1)
                 if member != member_str:
-                    talker = member_str.split(',', 1)
+                    await self.bot.send_message(temp_chat_id[0], f"📢 {talker[1]}: {message}")
+                    return True
+            return True
+        if self.chaos_phase:
+            talker = member_str.split(',', 1)
+            for member in self.members:
+                temp_chat_id = member.split(',', 1)
+                if member != member_str:
                     await self.bot.send_message(temp_chat_id[0], f"📢 {talker[1]}: {message}")
                     return True
             return True
@@ -153,7 +164,7 @@ class GameRoom:
                 current_row = (self.execute_condidates.index(member) + 3) // 3
                 voting_keyboard.add(bale.MenuKeyboardButton(f"رای به {name_id[1]}"),row=current_row)
                 await self.start_talking_turn(member)
-                await asyncio.sleep(47) #++++++++++++++++++++++++++++++++++++++++++++++++++(47)
+                await asyncio.sleep(47)
         else:
             for member in self.alive_players:
                 name_id = member.split(',', 1)
@@ -164,7 +175,7 @@ class GameRoom:
             chat_id = member.split(',', 1)
             await self.bot.send_message(chat_id[0], f"🗳️ رای‌گیری شروع شد!\n"
             "برای رای دادن از دکمه ها استفاده کنید. سی ثانیه فرصت دارید",components=voting_keyboard)
-        await asyncio.sleep(30) #============================================= (30)
+        await asyncio.sleep(30)
         await self.count_votes()
     
     async def handle_vote(self, voter_chat_id, vote_input):
@@ -562,7 +573,66 @@ class GameRoom:
             await self.execution(self.sniper_target,night_mode=True)
             self.sniper_target = ""
         await self.broadcast_message(kills)
-            
+
+    async def chaos_mode(self):
+        self.chaos_phase = True
+        for member in self.dead_players:
+            member_chat_id = member.split(',',1)
+            await self.bot.send_message(member_chat_id[0],"💣 آشوب شروع شد 💣")
+        self.broadcast_message("💣 آشوب شروع شد 💣\n\n👁 120 ثانیه فرصت دارید دارید همزمان گفتگو کنید.",exclude_dead=True)
+        await asyncio.sleep(120)
+        await self.start_handshake()
+
+    async def start_handshake(self):
+        self.chaos_phase = False
+        handshake_keyboard = bale.MenuKeyboardMarkup()
+        for member in self.alive_players:
+            name_id = member.split(',', 1)
+            handshake_keyboard.add(bale.MenuKeyboardButton(f"دست دادن با {name_id[1]}"))
+        self.handshake_phase = True
+        for member in self.alive_players:
+            chat_id = member.split(',', 1)
+            if member in self.mafia_team:
+                await self.bot.send_message(chat_id[0], "👾 منتظر نتیجه دست دادن بمانید")
+            await self.bot.send_message(chat_id[0], "🤝 30 ثانیه فرصت دارید با شهروند دیگر دست دهید. بادقت انتخاب کنید!\n❗ اگر در این فرصت دست ندهید مافیا برنده میشود.",components=handshake_keyboard)
+        await asyncio.sleep(30)
+        roles_str = "💡 نقش ها:\n"
+        for member in self.roles:
+            member_name = member.split(',',1)
+            roles_str += f"🔹 {member_name[1]}: {self.roles[member]}\n"
+        if self.chaos_win < 2:
+            await self.broadcast_message(f"💔 همه شهروندان دست ندادند!\n\n😈 بازی تمام شد! مافیا برنده شد!\n\n{roles_str}")
+        else:
+            await self.broadcast_message(f"🔥 شهروندان با هم دست دادند!\n\n🎉 بازی تمام شد! شهروندان برنده شدند!\n\n{roles_str}")
+        self.game_active = False
+    
+    async def handle_handshake(self, voter_chat_id, vote_input):
+        async with self.vote_lock:
+            shaker_member = self.get_member_by_chat_id(voter_chat_id)
+            if not self.handshake_phase or shaker_member in self.mafia_team:
+                await self.bot.send_message(voter_chat_id, "❌ الان مرحله دست دادن نیست!")
+                return False
+            if not shaker_member or shaker_member in self.dead_players:
+                await self.bot.send_message(voter_chat_id, "❌ شما مرده‌اید و نمی‌توانید دست دهید!")
+                return False
+            for i in self.alive_players:
+                target_chat_id, target_name = i.split(',', 1)
+                if target_name.rstrip() == vote_input[12:]:
+                    shaker_id, shaker_name = shaker_member.split(',',1)
+                    if i in self.mafia_team:
+                        roles_str = "💡 نقش ها:\n"
+                        for member in self.roles:
+                            member_name = member.split(',',1)
+                            roles_str += f"🔹 {member_name[1]}: {self.roles[member]}\n"
+                        await self.broadcast_message(f"💔 {shaker_name} با مافیا دست داد!\n\n😈 بازی تمام شد! مافیا برنده شد!\n\n{roles_str}")
+                        self.game_active = False
+                    else:
+                        self.chaos_win += 1
+                        await self.bot.send_message(shaker_id,f"🎯 ثبت شد.")
+                    return True
+            await self.bot.send_message(voter_chat_id, "❌ نامعتبر! لطفا از گزینه ها انتخاب کنید")
+            return False
+      
     async def check_game_end(self):
         roles_str = "💡 نقش ها:\n"
         if self.maf_count == 0 or self.maf_count >= self.cit_count:
@@ -580,11 +650,14 @@ class GameRoom:
     async def run_game(self):
         await self.assign_roles()
         while self.game_active:
+            if self.game_active and len(self.alive_players) < 4:
+                await self.chaos_mode()
+                break
             for member in self.alive_players:
                 if not self.game_active:
                     break
                 await self.start_talking_turn(member)
-                await asyncio.sleep(32) #++++++++++++++++++++++++++++++++++++++++++++++++++(32)
+                await asyncio.sleep(32)
                 if not self.game_active:
                     break
             if self.game_active and not self.first_day:
