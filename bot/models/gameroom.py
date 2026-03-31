@@ -554,7 +554,7 @@ class GameRoom:
             self.inquired_roles.clear()
             for i in self.dead_players:
                 left_str += f"{self.roles[i]}، "
-                self.inquired_roles.append[self.roles[i]]
+                self.inquired_roles.append(self.roles[i])
             await self.broadcast_message(left_str)
         self.inquire_phase = False
         self.inquire_vote.clear()
@@ -566,7 +566,7 @@ class GameRoom:
             kills += f"♦ {temp[1]}\n"
             await self.execution(self.night_target,night_mode=True)
             self.night_target = ""
-        if self.sniper_target:
+        if self.sniper_target and (self.sniper_target in self.alive_players):
             temp = self.sniper_target.split(',',1)
             kills += f"♦ {temp[1]}\n"
             await self.execution(self.sniper_target,night_mode=True)
