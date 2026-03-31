@@ -28,6 +28,9 @@ class GameRoom:
         self.inquire_phase = False
         self.chaos_phase = False
         self.handshake_phase = False
+        self.godfather_prot = True
+        self.doctor_selfsave = True
+        self.lecter_selfsave = True
         self.chaos_win = []
         self.godfather = ""
         self.maf_leader = ""
@@ -373,7 +376,7 @@ class GameRoom:
                 name_id = member.split(',', 1)
                 current_row = (self.alive_players.index(member) + 3) // 3
                 sniper_keyboard.add(bale.MenuKeyboardButton(f"اسنایپ {name_id[1]}"),row=current_row)
-            await self.bot.send_message(sniper_id,"🔫 اسنایپ شب را تا 20 ثانیه دیگر انتخاب کنید!",components=sniper_keyboard)
+            await self.bot.send_message(sniper_id,"🔫 در صورت تمایل اسنایپ شب را تا 20 ثانیه دیگر انتخاب کنید!",components=sniper_keyboard)
 
     async def handle_snipe(self, sniper_chat_id, kill_input):
         async with self.vote_lock:
@@ -428,6 +431,12 @@ class GameRoom:
             for i in self.alive_players:
                 save_chat_id, save_name = i.split(',', 1)
                 if save_name.rstrip() == save_input[5:]:
+                    if i == self.doctor:
+                        if self.doctor_selfsave:
+                            self.doctor_selfsave = False
+                        else:
+                            await self.bot.send_message(doctor_chat_id, f"⚰ قبلا یکبار خودتان را نجات دادید! شخص دیگری انتخاب کنید.")
+                            return False
                     if i == self.night_target:
                         self.night_target = ""
                     if i == self.sniper_target and self.sniper_target != self.sniper:
@@ -469,6 +478,12 @@ class GameRoom:
             for i in self.mafia_team:
                 save_chat_id, save_name = i.split(',', 1)
                 if save_name.rstrip() == save_input[9:]:
+                    if i == self.lecter:
+                        if self.lecter_selfsave:
+                            self.lecter_selfsave = False
+                        else:
+                            await self.bot.send_message(doctor_chat_id, f"⚰ قبلا یکبار خودتان را نجات دادید! شخص دیگری انتخاب کنید.")
+                            return False
                     if i == self.sniper_target:
                         self.sniper_target = ""
                     await self.bot.send_message(doctor_chat_id, f"💗 {save_name} شفا یافت.")
@@ -508,7 +523,10 @@ class GameRoom:
             for i in self.alive_players:
                 condi_chat_id, condi_name = i.split(',', 1)
                 if condi_name.rstrip() == asked_input[8:]:
-                    if i in self.mafia_team and i != self.godfather:
+                    if i == self.godfather and self.godfather_prot:
+                        await self.bot.send_message(detect_chat_id, f"🔹 {condi_name} شهروند است.")
+                        self.godfather_prot = False
+                    elif i in self.mafia_team:
                         await self.bot.send_message(detect_chat_id, f"‼ {condi_name} مافیا است!")
                     else:
                         await self.bot.send_message(detect_chat_id, f"🔹 {condi_name} شهروند است.")
