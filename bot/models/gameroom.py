@@ -49,7 +49,7 @@ class GameRoom:
     async def assign_roles(self):
         members = self.members.copy()
         all_roles_str = "➰ نقش‌های داخل بازی: "
-        special_roles = ['کارآگاه','دکتر','پدرخوانده','اسنایپر','دکتر مافیا']
+        special_roles = ['کارآگاه','دکتر','پدرخوانده','اسنایپر','شهروند ساده','دکتر مافیا']
         for role_name in special_roles:
             if members:
                 ind = random.randint(0, len(members) - 1)
@@ -62,7 +62,7 @@ class GameRoom:
                     self.cit_count +=1
                 members.pop(ind)
         simple_maf_count = 0
-        if len(members) > 3:
+        if len(members) > 2:
             simple_maf_count = (len(members) - 1) // 3
             all_roles_str += f"{str(simple_maf_count)} × مافیای ساده و "
         self.maf_count += simple_maf_count
@@ -72,8 +72,8 @@ class GameRoom:
             self.mafia_team.append(members[maf_ind])
             members.pop(maf_ind)
         self.cit_count += len(members)
-        if len(members) > 0:
-            all_roles_str += f"{str(len(members))} × شهروند ساده."
+        if len(self.members) > 4:
+            all_roles_str += f"{str(len(members)+1)} × شهروند ساده."
         else:
             all_roles_str = all_roles_str[:-2] + "."
         for member in members:
@@ -110,9 +110,9 @@ class GameRoom:
     
     async def end_talking_turn(self):
         if self.execute_condidates:
-            await asyncio.sleep(45) #++++++++++++++++++++++++++++++++++++++++++++++++++(45)
+            await asyncio.sleep(45)
         else:
-            await asyncio.sleep(30) #++++++++++++++++++++++++++++++++++++++++++++++++++(30)
+            await asyncio.sleep(30)
         if self.current_talker:
             await self.broadcast_message(
                 f"⏰ زمان صحبت {self.current_talker_name} به پایان رسید.",
@@ -289,7 +289,7 @@ class GameRoom:
                 await self.doctor_save()
                 await asyncio.sleep(20)
                 self.doctor_phase = False
-            if 'دکتر مافیا' not in self.inquired_roles:
+            if 'دکتر مافیا' not in self.inquired_roles and len(self.members) > 5:
                 await self.lecter_prot()
                 await asyncio.sleep(20)
                 self.lecter_phase = False
