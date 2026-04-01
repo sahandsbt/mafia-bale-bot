@@ -15,10 +15,11 @@ start_keyboard.add(bale.MenuKeyboardButton("❓ راهنما"),row=2)
 start_keyboard.add(bale.MenuKeyboardButton("☎ پشتیبانی"),row=2)
 
 leader_keyboard = bale.MenuKeyboardMarkup()
-leader_keyboard.add(bale.MenuKeyboardButton("🎮 شروع بازی 🎮"),row=1)
+leader_keyboard.add(bale.MenuKeyboardButton("🎮 شروع بازی 🎮"))
+leader_keyboard.add(bale.MenuKeyboardButton("🛑 حذف گروه 🛑"))
 
 invited_keyboard = bale.MenuKeyboardMarkup()
-invited_keyboard.add(bale.MenuKeyboardButton("🚪 خروج 🚪"),row=1)
+invited_keyboard.add(bale.MenuKeyboardButton("🚪 خروج 🚪"))
 
 null_keyboard = bale.MenuKeyboardMarkup()
 
@@ -60,6 +61,8 @@ async def on_message(bot: bale.Bot, message: bale.Message):
                             if game_room.game_active and message.text:
                                 if message.text.startswith("رای به"):
                                     await game_room.handle_vote(chat_id, message.text)
+                                elif message.text.startswith("دست دادن با"):
+                                    await game_room.handle_handshake(chat_id, message.text)
                                 elif message.text.startswith("کشتن"):
                                     await game_room.handle_kill(chat_id, message.text)
                                 elif message.text.startswith("اسنایپ"):
@@ -70,6 +73,8 @@ async def on_message(bot: bale.Bot, message: bale.Message):
                                     await game_room.handle_prot(chat_id, message.text)
                                 elif message.text.startswith("استعلام"):
                                     await game_room.handle_detect(chat_id, message.text)
+                                elif message.text.startswith("گرفتن استعلام کشته ها"):
+                                    await game_room.handle_inquire(chat_id)
                                 else:
                                     await game_room.handle_player_message(chat_id, message.text)
                                 return
@@ -77,7 +82,7 @@ async def on_message(bot: bale.Bot, message: bale.Message):
     
     if message.text == "🚪 خروج 🚪" and (message.from_user.chat_id in waiting_lobby):
         inviter = waiting_lobby[message.from_user.chat_id]
-        room_file = open(f"{inviter}.txt", 'r')
+        room_file = open(f"{inviter}.txt", 'r', encoding="utf-8")
         ids = room_file.readlines()
         new_line = f"{message.from_user.chat_id},{message.from_user.first_name}\n"
         ind = ids.index(new_line)
@@ -111,12 +116,40 @@ async def on_message(bot: bale.Bot, message: bale.Message):
             asyncio.create_task(room(bot, members))
         else:
             await message.reply(text="حداقل تعداد برای شروع 4 نفر است!")
+        return
+    
+    if message.text == "🛑 حذف گروه 🛑":
+        members = [message.from_user.chat_id]
+        memberlist = []
+        try:
+            with open(f"{message.from_user.id}.txt", 'r', encoding="utf-8") as f:
+                memberlist = f.readlines()
+        except:
+            await message.reply("⚠ شما لیدر گروهی نیستید!")
+            return
+        for i in memberlist:
+            chatid = i.split(',',1)
+            waiting_lobby.pop(chatid[0])
+            await bot.send_message(chatid[0],"📛 گروه توسط لیدر حذف شد!",components=start_keyboard)
+        os.remove(f"{message.from_user.id}.txt")
+        return
     
     if message.from_user.chat_id in waiting_lobby:
         await message.reply(text="‼ شما لیدر گروه هستید! ابتدا بازی را شروع کنید.")
         return
     
     if message.text.startswith("/start"):
+        all_users = []
+        new_user = f"{message.from_user.chat_id}|{message.from_user.first_name}\n"
+        try:
+            all_users_file = open("data/users.txt", 'r', encoding="utf-8")
+            all_users = all_users_file.readlines()
+            all_users_file.close()
+        except:
+            pass
+        if new_user not in all_users:
+            with open("data/users.txt", 'a', encoding="utf-8") as f:
+                f.write(f"{message.from_user.chat_id}|{message.from_user.first_name}\n")
         if message.text == "/start":
             await message.reply(
                 text="سلام خوش اومدی به بات بازی مافیا🥹\n\n💥 برای شروع بازی روی ساخت گروه کلیک کن یا\n➖ /party\nرو بفرست😎",
@@ -127,29 +160,27 @@ async def on_message(bot: bale.Bot, message: bale.Message):
             if start_code.startswith("party-") and (message.from_user.id != start_code[6:]) :
                 invite_code = start_code[6:]
                 try:
-                    room_file = open(f"{invite_code}.txt", 'r')
+                    room_file = open(f"{invite_code}.txt", 'r', encoding="utf-8")
                     ids = room_file.readlines()
-                    new_line = f"{message.from_user.chat_id},{message.from_user.first_name}\n"
-                    if new_line not in ids:
-                        with open(f"{invite_code}.txt", 'a', encoding="utf-8") as f:
-                            f.write(f"{message.from_user.chat_id},{message.from_user.first_name}\n")
-                        meschat_id = ids[0].split(',')
-                        memberlist = f"🔅{message.from_user.first_name}\n"
-                        for i in range(1, len(ids)):
-                            temp = ids[i].split(sep=',', maxsplit=1)
-                            await bot.send_message(temp[0],f"💠 {message.from_user.first_name} به گروه اضافه شد.")
-                            memberlist += f"🔅{temp[1]}"
-                        await bot.edit_message(
-                            meschat_id[0], meschat_id[1][:-1],
-                            f"⚔ اینو برا دوستات بفرست:\nhttps://ble.ir/sasabot?start={start_code}\n\n⏰ افراد اضافه شده:\n{memberlist}",
-                            components=leader_keyboard)
-                        await message.reply(
-                            text=f"🔥 به بازی اضافه شدی. وایستا تا بازی شروع شه.\n\n⏰ اعضای فعلی:\n{memberlist}",
-                            components=invited_keyboard)
-                        waiting_lobby[message.from_user.chat_id] = invite_code
+                    with open(f"{invite_code}.txt", 'a', encoding="utf-8") as f:
+                        f.write(f"{message.from_user.chat_id},{message.from_user.first_name}\n")
+                    meschat_id = ids[0].split(',')
+                    memberlist = f"🔅{message.from_user.first_name}\n"
+                    for i in range(1, len(ids)):
+                        temp = ids[i].split(sep=',', maxsplit=1)
+                        await bot.send_message(temp[0],f"💠 {message.from_user.first_name} به گروه اضافه شد.")
+                        memberlist += f"🔅{temp[1]}"
+                    await bot.edit_message(
+                        meschat_id[0], meschat_id[1][:-1],
+                        f"⚔ اینو برا دوستات بفرست:\nhttps://ble.ir/sasabot?start={start_code}\n\n⏰ افراد اضافه شده:\n{memberlist}",
+                        components=leader_keyboard)
+                    await message.reply(
+                        text=f"🔥 به بازی اضافه شدی. وایستا تا بازی شروع شه.\n\n⏰ اعضای فعلی:\n{memberlist}",
+                        components=invited_keyboard)
+                    waiting_lobby[message.from_user.chat_id] = invite_code
                     room_file.close()
                 except:
-                    await message.reply(text="☹ پیوستن به گروه با مشکل مواجه شد. لطفا به پشتیبانی اطلاع دهید.")
+                    await message.reply(text="🗿 گروه مدنظر وجود ندارد.")
     
     elif message.text == "🎡 ساخت گروه 🎡" or message.text == "/party":
         await message.reply(
@@ -163,8 +194,8 @@ async def on_message(bot: bale.Bot, message: bale.Message):
         await message.reply(text="📣 در صورت بروز هرگونه مشکل فنی خواهشمندیم به\n🆔 @sahandsbt\nدر بله یا تلگرام پیام دهید.")
     
     elif message.text == "❓ راهنما" or message.text == "/help":
-        await message.reply(text="😑 داریم روش کار میکنیم.")
-
+        await message.reply(text="😑 داریم روش کار میکنیم. (مافیا راهنما میخواد آخه؟)")
+     
     else:
         await message.reply(text="😒 دستور نامعتبر!")
         logger.warning(f"Unsupported command sent. | Name: {message.from_user.first_name} - ID: {message.from_user.id}")
