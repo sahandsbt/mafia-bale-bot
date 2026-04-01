@@ -23,7 +23,7 @@ invited_keyboard.add(bale.MenuKeyboardButton("🚪 خروج 🚪"),row=1)
 null_keyboard = bale.MenuKeyboardMarkup()
 
 async def on_ready(bot: bale.Bot):
-    logger.info(f"Logged in as {bot.user.first_name} {bot.user.last_name} ID: {bot.user.id}")
+    logger.info(f"Logged in as {bot.user.username} - ID: {bot.user.id}")
     logger.info("Bot is now ready and online!")
 
 active_rooms: Dict[str, GameRoom] = {}
@@ -164,7 +164,7 @@ async def on_message(bot: bale.Bot, message: bale.Message):
     
     elif message.text == "❓ راهنما" or message.text == "/help":
         await message.reply(text="😑 داریم روش کار میکنیم.")
-     
+
     else:
         await message.reply(text="😒 دستور نامعتبر!")
         logger.warning(f"Unsupported command sent. | Name: {message.from_user.first_name} - ID: {message.from_user.id}")
