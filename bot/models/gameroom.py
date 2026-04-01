@@ -57,7 +57,8 @@ class GameRoom:
             if members:
                 ind = random.randint(0, len(members) - 1)
                 self.roles[members[ind]] = role_name
-                all_roles_str += f"{role_name}، "
+                if role_name != 'شهروند ساده':
+                    all_roles_str += f"{role_name}، "
                 if role_name in ['پدرخوانده','دکتر مافیا']:
                     self.maf_count +=1
                     self.mafia_team.append(members[ind])
@@ -88,14 +89,14 @@ class GameRoom:
         for role in self.roles.values():
             role_count[role] = role_count.get(role, 0) + 1
     
-    async def broadcast_message(self, message, exclude_talker = False, exclude_dead = False):
+    async def broadcast_message(self, message, exclude_talker = False, exclude_dead = False, component = None):
         for member in self.members:
             chat_id = member.split(',', 1)
             if exclude_talker and self.current_talker == chat_id[0]:
                 continue
             if exclude_dead and member in self.dead_players:
                 continue
-            await self.bot.send_message(chat_id[0], message)
+            await self.bot.send_message(chat_id[0], message, components=component)
     
     async def start_talking_turn(self, member):
         chat_id, name = member.split(',', 1)
@@ -335,7 +336,7 @@ class GameRoom:
             current_row = (self.alive_players.index(member) + 3) // 3
             godfather_keyboard.add(bale.MenuKeyboardButton(f"کشتن {name_id[1]}"),row=current_row)
             if member != self.maf_leader:
-                await self.bot.send_message(name_id[0],"🐱‍👤 مافیا آماده شلیک است!")
+                await self.bot.send_message(name_id[0],"🚬 مافیا آماده شلیک است!")
         await self.bot.send_message(leader_id,"🔫 شکار شب را تا 20 ثانیه دیگر انتخاب کنید!",components=godfather_keyboard)
 
     async def handle_kill(self, killer_chat_id, kill_input):
@@ -613,16 +614,22 @@ class GameRoom:
                 await self.bot.send_message(chat_id[0], "👾 منتظر نتیجه دست دادن بمانید")
             else:
                 await self.bot.send_message(chat_id[0], "🤝 30 ثانیه فرصت دارید با شهروند دیگر دست دهید. بادقت انتخاب کنید!\n❗ اگر در این فرصت دست ندهید مافیا برنده میشود.",components=handshake_keyboard)
-        await asyncio.sleep(30)
-        roles_str = "💡 نقش ها:\n"
-        for member in self.roles:
-            member_name = member.split(',',1)
-            roles_str += f"🔹 {member_name[1]}: {self.roles[member]}\n"
-        if len(self.chaos_win) < 2:
-            await self.broadcast_message(f"💔 همه شهروندان دست ندادند!\n\n😈 بازی تمام شد! مافیا برنده شد!\n\n{roles_str}")
-        else:
-            await self.broadcast_message(f"🔥 شهروندان با هم دست دادند!\n\n🎉 بازی تمام شد! شهروندان برنده شدند!\n\n{roles_str}")
-        self.game_active = False
+        await asyncio.sleep(20)
+        for member in self.alive_players:
+            chat_id = member.split(',', 1)
+            if (member not in self.mafia_team) and (member not in self.chaos_win):
+                await self.bot.send_message(chat_id[0], "‼ عجله کن. فقط 10 ثانیه فرصت دست دادن داری!",components=handshake_keyboard)
+        await asyncio.sleep(10)
+        if self.game_active:
+            roles_str = "💡 نقش ها:\n"
+            for member in self.roles:
+                member_name = member.split(',',1)
+                roles_str += f"🔹 {member_name[1]}: {self.roles[member]}\n"
+            if len(self.chaos_win) < 2:
+                await self.broadcast_message(f"💔 همه شهروندان دست ندادند!\n\n😈 بازی تمام شد! مافیا برنده شد!\n\n{roles_str}")
+            else:
+                await self.broadcast_message(f"🔥 شهروندان با هم دست دادند!\n\n🎉 بازی تمام شد! شهروندان برنده شدند!\n\n{roles_str}")
+            self.game_active = False
     
     async def handle_handshake(self, voter_chat_id, vote_input):
         async with self.vote_lock:

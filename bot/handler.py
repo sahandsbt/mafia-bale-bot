@@ -40,7 +40,7 @@ async def room(bot, members_list):
         await game_room.run_game()
     except Exception as e:
         print(f"Error in room {room_id}: {e}")
-        await game_room.broadcast_message(f"❌ خطا در بازی: {str(e)}")
+        await game_room.broadcast_message(f"❌ خطا در بازی: {str(e)}",components=start_keyboard)
     finally:
         if room_id in active_rooms:
             del active_rooms[room_id]
@@ -108,7 +108,7 @@ async def on_message(bot: bale.Bot, message: bale.Message):
             memberlist = f.readlines()
         for i in range(1, len(memberlist)):
             members.append(memberlist[i][:-1])
-        if len(members) > 1: #=======================================( 3 )
+        if len(members) > 3:
             for member in members:
                 member_chat_id = member.split(',',1)
                 waiting_lobby.pop(member_chat_id[0])
@@ -140,7 +140,7 @@ async def on_message(bot: bale.Bot, message: bale.Message):
     
     if message.text.startswith("/start"):
         all_users = []
-        new_user = f"{message.from_user.chat_id}|{message.from_user.first_name}\n"
+        new_user = f"{message.from_user.chat_id}|{message.from_user.username}|{message.from_user.first_name}\n"
         try:
             all_users_file = open("data/users.txt", 'r', encoding="utf-8")
             all_users = all_users_file.readlines()
@@ -149,7 +149,7 @@ async def on_message(bot: bale.Bot, message: bale.Message):
             pass
         if new_user not in all_users:
             with open("data/users.txt", 'a', encoding="utf-8") as f:
-                f.write(f"{message.from_user.chat_id}|{message.from_user.first_name}\n")
+                f.write(f"{message.from_user.chat_id}|{message.from_user.username}|{message.from_user.first_name}\n")
         if message.text == "/start":
             await message.reply(
                 text="سلام خوش اومدی به بات بازی مافیا🥹\n\n💥 برای شروع بازی روی ساخت گروه کلیک کن یا\n➖ /party\nرو بفرست😎",
