@@ -18,6 +18,10 @@ async def on_ready():
 async def on_message(message: bale.Message):
     await handler.on_message(bot, message)
 
+@bot.event
+async def on_callback(callback: bale.CallbackQuery):
+    await handler.on_callback(bot, callback)
+
 def run_bot():
     try:
         bot.run()

@@ -7,6 +7,7 @@ import os
 
 from bot.models.gameroom import GameRoom
 from config import *
+import bot.docs as docs
 
 # Keyboards
 start_keyboard = bale.MenuKeyboardMarkup()
@@ -17,6 +18,13 @@ start_keyboard.add(bale.MenuKeyboardButton("☎ پشتیبانی"),row=2)
 leader_keyboard = bale.MenuKeyboardMarkup()
 leader_keyboard.add(bale.MenuKeyboardButton("🎮 شروع بازی 🎮"))
 leader_keyboard.add(bale.MenuKeyboardButton("🛑 حذف گروه 🛑"))
+
+docs_keyboard = bale.InlineKeyboardMarkup()
+docs_keyboard.add(bale.InlineKeyboardButton(text="⁉ قوانین", callback_data="mafiabot:rules"))
+docs_keyboard.add(bale.InlineKeyboardButton(text="🕵️‍♂️ نقش ها", callback_data="mafiabot:roles"))
+
+helpback_keyboard = bale.InlineKeyboardMarkup()
+helpback_keyboard.add(bale.InlineKeyboardButton(text="🔙 بازگشت به راهنما", callback_data="mafiabot:helpback"))
 
 invited_keyboard = bale.MenuKeyboardMarkup()
 invited_keyboard.add(bale.MenuKeyboardButton("🚪 خروج 🚪"))
@@ -194,8 +202,16 @@ async def on_message(bot: bale.Bot, message: bale.Message):
         await message.reply(text="📣 در صورت بروز هرگونه مشکل فنی خواهشمندیم به\n🆔 @sahandsbt\nدر بله یا تلگرام پیام دهید.")
     
     elif message.text == "❓ راهنما" or message.text == "/help":
-        await message.reply(text="😑 داریم روش کار میکنیم. (مافیا راهنما میخواد آخه؟)")
+        await message.reply(text=docs.main_help,components=docs_keyboard)
      
     else:
         await message.reply(text="😒 دستور نامعتبر!")
         logger.warning(f"Unsupported command sent. | Name: {message.from_user.first_name} - ID: {message.from_user.id}")
+
+async def on_callback(bot: bale.Bot, callback: bale.CallbackQuery):
+    if callback.data == "mafiabot:roles":
+        await callback.message.edit(docs.roles_help,components=helpback_keyboard)
+    elif callback.data == "mafiabot:rules":
+        await callback.message.edit(docs.rules_help,components=helpback_keyboard)
+    elif callback.data == "mafiabot:helpback":
+        await callback.message.edit(docs.main_help,components=docs_keyboard)
