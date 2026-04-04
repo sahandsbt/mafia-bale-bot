@@ -6,7 +6,9 @@ import bale
 import os
 
 from bot.models.gameroom import GameRoom
+from dotenv import load_dotenv
 from config import *
+from bot.utils import *
 import bot.docs as docs
 
 # Keyboards
@@ -35,6 +37,9 @@ async def on_ready(bot: bale.Bot):
     logger.info(f"Logged in as {bot.user.username} - ID: {bot.user.id}")
     logger.info("Bot is now ready and online!")
 
+load_dotenv()
+CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME")
+BOT_USERNAME = os.getenv("BOT_USERNAME")
 active_rooms: Dict[str, GameRoom] = {}
 waiting_lobby = {}
 room_locks = {}
@@ -58,6 +63,8 @@ async def room(bot, members_list):
 async def on_message(bot: bale.Bot, message: bale.Message):
     if message.text == None:
         logger.warning(f"Unsupported type of message sent. | Name: {message.from_user.first_name} - ID: {message.from_user.id}")
+        return
+    if not message.from_user.username:
         return
     
     chat_id = str(message.chat_id)
@@ -158,6 +165,20 @@ async def on_message(bot: bale.Bot, message: bale.Message):
         if new_user not in all_users:
             with open("data/users.txt", 'a', encoding="utf-8") as f:
                 f.write(f"{message.from_user.chat_id}|{message.from_user.username}|{message.from_user.first_name}\n")
+        
+        sub_check = await is_member(bot, message)
+        if sub_check == None:
+            new_url = message.text
+            new_url = new_url.replace("/","")
+            new_url = new_url.replace(" ","=")
+            new_url = f"https://ble.ir/{BOT_USERNAME}?" + new_url
+            subcheck_keyboard = bale.InlineKeyboardMarkup()
+            subcheck_keyboard.add(bale.InlineKeyboardButton("✅ عضو شدم",url=new_url))
+            subcheck_keyboard.add(bale.InlineKeyboardButton("💠 عضویت",url=f"https://ble.ir/{CHANNEL_USERNAME}"))
+            await message.reply(
+                f"سلام! خواهشا ابتدا در کانال اطلاع رسانی بات عضو شوید 🥰\n🆔 @{CHANNEL_USERNAME}\nسپس روی عضو شدم کلیک کنید.✨",
+                components=subcheck_keyboard)
+            return
         if message.text == "/start":
             await message.reply(
                 text="سلام خوش اومدی به بات بازی مافیا🥹\n\n💥 برای شروع بازی روی ساخت گروه کلیک کن یا\n➖ /party\nرو بفرست😎",
@@ -180,7 +201,7 @@ async def on_message(bot: bale.Bot, message: bale.Message):
                         memberlist += f"🔅{temp[1]}"
                     await bot.edit_message(
                         meschat_id[0], meschat_id[1][:-1],
-                        f"⚔ اینو برا دوستات بفرست:\nhttps://ble.ir/mafiasbot?start={start_code}\n\n⏰ افراد اضافه شده:\n{memberlist}",
+                        f"⚔ اینو برا دوستات بفرست:\nhttps://ble.ir/{BOT_USERNAME}?start={start_code}\n\n⏰ افراد اضافه شده:\n{memberlist}",
                         components=leader_keyboard)
                     await message.reply(
                         text=f"🔥 به بازی اضافه شدی. وایستا تا بازی شروع شه.\n\n⏰ اعضای فعلی:\n{memberlist}",
@@ -192,7 +213,7 @@ async def on_message(bot: bale.Bot, message: bale.Message):
     
     elif message.text == "🎡 ساخت گروه 🎡" or message.text == "/party":
         await message.reply(
-            text=f"⚔ اینو برا دوستات بفرست:\nhttps://ble.ir/mafiasbot?start=party-{message.from_user.id}",
+            text=f"⚔ اینو برا دوستات بفرست:\nhttps://ble.ir/{BOT_USERNAME}?start=party-{message.from_user.id}",
             components=leader_keyboard)
         with open(f"{message.from_user.id}.txt", 'w', encoding="utf-8") as f:
             f.write(f"{message.chat_id},{int(message.message_id) + 1}\n")
