@@ -180,7 +180,7 @@ async def on_message(bot: bale.Bot, message: bale.Message):
                         memberlist += f"🔅{temp[1]}"
                     await bot.edit_message(
                         meschat_id[0], meschat_id[1][:-1],
-                        f"⚔ اینو برا دوستات بفرست:\nhttps://ble.ir/sasabot?start={start_code}\n\n⏰ افراد اضافه شده:\n{memberlist}",
+                        f"⚔ اینو برا دوستات بفرست:\nhttps://ble.ir/mafiasbot?start={start_code}\n\n⏰ افراد اضافه شده:\n{memberlist}",
                         components=leader_keyboard)
                     await message.reply(
                         text=f"🔥 به بازی اضافه شدی. وایستا تا بازی شروع شه.\n\n⏰ اعضای فعلی:\n{memberlist}",
@@ -192,7 +192,7 @@ async def on_message(bot: bale.Bot, message: bale.Message):
     
     elif message.text == "🎡 ساخت گروه 🎡" or message.text == "/party":
         await message.reply(
-            text=f"⚔ اینو برا دوستات بفرست:\nhttps://ble.ir/sasabot?start=party-{message.from_user.id}",
+            text=f"⚔ اینو برا دوستات بفرست:\nhttps://ble.ir/mafiasbot?start=party-{message.from_user.id}",
             components=leader_keyboard)
         with open(f"{message.from_user.id}.txt", 'w', encoding="utf-8") as f:
             f.write(f"{message.chat_id},{int(message.message_id) + 1}\n")
