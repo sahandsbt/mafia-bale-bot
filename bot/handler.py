@@ -64,7 +64,7 @@ async def on_message(bot: bale.Bot, message: bale.Message):
     if message.text == None:
         logger.warning(f"Unsupported type of message sent. | Name: {message.from_user.first_name} - ID: {message.from_user.id}")
         return
-    if not message.from_user.username:
+    if not message.from_user.first_name:
         return
     
     chat_id = str(message.chat_id)
