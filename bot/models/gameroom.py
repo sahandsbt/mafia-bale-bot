@@ -304,6 +304,7 @@ class GameRoom:
             await self.night_events()
             if await self.check_game_end():
                 self.game_active = False
+                return
             if self.left_inquire > 0:
                 await self.day_inquire()
         else:
