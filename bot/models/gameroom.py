@@ -106,17 +106,17 @@ class GameRoom:
         self.current_talker_name = name
         if self.execute_condidates:
             await self.broadcast_message(f"🗣️ نوبت دفاعیه {name} است.",exclude_talker=True,exclude_dead=True)
-            await self.bot.send_message(chat_id,"⏳ نوبت دفاعیه شماست. تا 45 ثانیه تمام پیام‌های شما برای بقیه ارسال می‌شود.")
+            await self.bot.send_message(chat_id,"⏳ نوبت دفاعیه شماست. تا 60 ثانیه تمام پیام‌های شما برای بقیه ارسال می‌شود.")
         else:
             await self.broadcast_message(f"🗣️ نوبت حرف زدن {name} است.",exclude_talker=True,exclude_dead=True)
-            await self.bot.send_message(chat_id,"⏳ نوبت حرف زدن شماست. تا 30 ثانیه تمام پیام‌های شما برای بقیه ارسال می‌شود.")
+            await self.bot.send_message(chat_id,"⏳ نوبت حرف زدن شماست. تا 45 ثانیه تمام پیام‌های شما برای بقیه ارسال می‌شود.")
         asyncio.create_task(self.end_talking_turn())
     
     async def end_talking_turn(self):
         if self.execute_condidates:
-            await asyncio.sleep(45)
+            await asyncio.sleep(60)
         else:
-            await asyncio.sleep(30)
+            await asyncio.sleep(45)
         if self.current_talker:
             await self.broadcast_message(
                 f"⏰ زمان صحبت {self.current_talker_name} به پایان رسید.",
@@ -167,7 +167,7 @@ class GameRoom:
                 current_row = (self.execute_condidates.index(member) + 3) // 3
                 voting_keyboard.add(bale.MenuKeyboardButton(f"رای به {name_id[1]}"),row=current_row)
                 await self.start_talking_turn(member)
-                await asyncio.sleep(47)
+                await asyncio.sleep(62)
         else:
             for member in self.alive_players:
                 name_id = member.split(',', 1)
@@ -177,7 +177,7 @@ class GameRoom:
         for member in self.alive_players:
             chat_id = member.split(',', 1)
             await self.bot.send_message(chat_id[0], f"🗳️ رای‌گیری شروع شد!\n"
-            "برای رای دادن از دکمه ها استفاده کنید. سی ثانیه فرصت دارید",components=voting_keyboard)
+            "برای رای دادن از دکمه ها استفاده کنید. 30 ثانیه فرصت دارید",components=voting_keyboard)
         await asyncio.sleep(30)
         await self.count_votes()
     
@@ -302,6 +302,8 @@ class GameRoom:
                 await asyncio.sleep(20)
                 self.detect_phase = False
             await self.night_events()
+            if await self.check_game_end():
+                self.game_active = False
             if self.left_inquire > 0:
                 await self.day_inquire()
         else:
@@ -542,8 +544,8 @@ class GameRoom:
         self.inquire_phase = True
         for member in self.alive_players:
             chat_id = member.split(',', 1)
-            await self.bot.send_message(chat_id[0], f"🧿 برای رای به گرفتن استعلام کشته ها 15 ثانیه فرصت دارید. تنها دوبار میتوان استعلام گرفت!",components=inquire_keyboard)
-        await asyncio.sleep(15)
+            await self.bot.send_message(chat_id[0], f"🧿 برای رای به گرفتن استعلام کشته ها 20 ثانیه فرصت دارید. تنها دوبار میتوان استعلام گرفت!",components=inquire_keyboard)
+        await asyncio.sleep(20)
         await self.count_inquire()
     
     async def handle_inquire(self, inquire_chat_id):
@@ -688,7 +690,7 @@ class GameRoom:
                 if not self.game_active:
                     break
                 await self.start_talking_turn(member)
-                await asyncio.sleep(32)
+                await asyncio.sleep(47)
                 if not self.game_active:
                     break
             if self.game_active and not self.first_day:

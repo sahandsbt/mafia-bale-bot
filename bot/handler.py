@@ -40,6 +40,7 @@ async def on_ready(bot: bale.Bot):
 load_dotenv()
 CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME")
 BOT_USERNAME = os.getenv("BOT_USERNAME")
+ADMIN_ID = os.getenv("ADMIN_ID")
 active_rooms: Dict[str, GameRoom] = {}
 waiting_lobby = {}
 room_locks = {}
@@ -224,7 +225,10 @@ async def on_message(bot: bale.Bot, message: bale.Message):
     
     elif message.text == "❓ راهنما" or message.text == "/help":
         await message.reply(text=docs.main_help,components=docs_keyboard)
-     
+    
+    elif message.text == "/admin" and message.from_user.id == ADMIN_ID:
+        await message.reply(text="💝 Comming Soon!")
+        
     else:
         await message.reply(text="😒 دستور نامعتبر!")
         logger.warning(f"Unsupported command sent. | Name: {message.from_user.first_name} - ID: {message.from_user.id}")
