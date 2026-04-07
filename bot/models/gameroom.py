@@ -6,6 +6,8 @@ import asyncio
 from collections import defaultdict
 from typing import List
 
+from config import logger
+
 class GameRoom:
     def __init__(self, bot: bale.Bot, members_list: List[str]):
         self.bot = bot
@@ -48,11 +50,23 @@ class GameRoom:
         self.mafia_team = []
         self.night_target = ""
         self.sniper_target = ""
+        self.challange_keyboard = bale.MenuKeyboardMarkup()
+        self.challange_keyboard.add(bale.MenuKeyboardButton("چالش"))
+        self.challange_accept_keyboard = bale.MenuKeyboardMarkup()
+        self.challange_await_memeber = ""
+        self.challange_is_await = False
+        self.challange_requests = []
+        self.done_challanges = []
+        self.challange_done = asyncio.Event()
+        self.challange_done.clear()
+        self.turn_done = asyncio.Event()
+        self.turn_done.clear()
+        self.current_timer_task = None
         
     async def assign_roles(self):
         members = self.members.copy()
         all_roles_str = "➰ نقش‌های داخل بازی: "
-        special_roles = ['کارآگاه','دکتر','پدرخوانده','اسنایپر','شهروند ساده','دکتر مافیا']
+        special_roles = ['کارآگاه']#,'دکتر','پدرخوانده','اسنایپر','شهروند ساده','دکتر مافیا']
         for role_name in special_roles:
             if members:
                 ind = random.randint(0, len(members) - 1)
@@ -84,7 +98,7 @@ class GameRoom:
             self.roles[member] = 'شهروند ساده'
         for member in self.members:
             chat_id = member.split(',', 1)
-            await self.bot.send_message(chat_id[0], f"🎭 بازی شروع شد! نقش شما {self.roles[member]} است.\n\n{all_roles_str}",components=None)
+            await self.bot.send_message(chat_id[0], f"🎭 بازی شروع شد! نقش شما {self.roles[member]} است.\n\n{all_roles_str}",components=self.challange_keyboard)
         role_count = {}
         for role in self.roles.values():
             role_count[role] = role_count.get(role, 0) + 1
@@ -98,32 +112,41 @@ class GameRoom:
                 continue
             await self.bot.send_message(chat_id[0], message, components=component)
     
-    async def start_talking_turn(self, member):
+    async def start_talking_turn(self, member: str):
+        if self.current_timer_task and not self.current_timer_task.done():
+            self.current_timer_task.cancel()
+
         chat_id, name = member.split(',', 1)
-        if member in self.dead_players:
-            return
         self.current_talker = chat_id
         self.current_talker_name = name
+
         if self.execute_condidates:
-            await self.broadcast_message(f"🗣️ نوبت دفاعیه {name} است.",exclude_talker=True,exclude_dead=True)
-            await self.bot.send_message(chat_id,"⏳ نوبت دفاعیه شماست. تا 45 ثانیه تمام پیام‌های شما برای بقیه ارسال می‌شود.")
+            await self.broadcast_message(f"🗣️ نوبت دفاعیه {name} است.", exclude_talker=True, exclude_dead=True)
+            await self.bot.send_message(chat_id, "⏳ نوبت دفاعیه شماست. 45 ثانیه فرصت دارید.")
+        elif self.challange_is_await:
+            await self.broadcast_message(f"🗣️ نوبت چالش {name} است.", exclude_talker=True, exclude_dead=True)
+            await self.bot.send_message(chat_id, "⏳ نوبت چالش شماست. 20 ثانیه فرصت دارید.")
         else:
-            await self.broadcast_message(f"🗣️ نوبت حرف زدن {name} است.",exclude_talker=True,exclude_dead=True)
-            await self.bot.send_message(chat_id,"⏳ نوبت حرف زدن شماست. تا 30 ثانیه تمام پیام‌های شما برای بقیه ارسال می‌شود.")
-        asyncio.create_task(self.end_talking_turn())
-    
+            await self.broadcast_message(f"🗣️ نوبت حرف زدن {name} است.", exclude_talker=True, exclude_dead=True)
+            await self.bot.send_message(chat_id, "⏳ نوبت حرف زدن شماست. 30 ثانیه فرصت دارید.")
+        
+        self.current_timer_task = asyncio.create_task(self.end_talking_turn())
+        
     async def end_talking_turn(self):
-        if self.execute_condidates:
-            await asyncio.sleep(45)
-        else:
-            await asyncio.sleep(30)
+        if self.execute_condidates: duration = 45
+        elif self.challange_is_await: duration = 20
+        else: duration = 30
+
+        await asyncio.sleep(duration)
+
         if self.current_talker:
-            await self.broadcast_message(
-                f"⏰ زمان صحبت {self.current_talker_name} به پایان رسید.",
-                exclude_talker=True,exclude_dead=True)
-            await self.bot.send_message(self.current_talker,"⏰ زمان صحبت شما به پایان رسید.")
-            self.current_talker = None
-            self.current_talker_name = None
+            await self.broadcast_message(f"⏰ زمان صحبت {self.current_talker_name} به پایان رسید.", component=self.challange_keyboard, exclude_talker=True)
+            await self.bot.send_message(self.current_talker, "⏰ زمان صحبت شما به پایان رسید.", components=self.challange_keyboard)
+
+        self.current_talker = None
+        self.turn_done.set()
+        if self.challange_is_await:
+            self.challange_done.set()
     
     async def handle_player_message(self, chat_id, message):
         if not self.game_active:
@@ -138,11 +161,9 @@ class GameRoom:
         if self.mafia_phase and (member_str in self.mafia_team):
             talker = member_str.split(',', 1)
             for member in self.mafia_team:
-                temp_chat_id = member.split(',', 1)
                 if member != member_str:
-                    await self.bot.send_message(temp_chat_id[0], f"📢 {talker[1]}: {message}")
-                    return True
-            return True
+                    temp_chat_id = member.split(',', 1)[0]
+                    await self.bot.send_message(temp_chat_id, f"📢 {talker[1]}: {message}")
         if self.chaos_phase:
             talker = member_str.split(',', 1)
             for member in self.members:
@@ -156,6 +177,13 @@ class GameRoom:
         for member in self.members:
             member_chat_id, _ = member.split(',', 1)
             if member_chat_id == chat_id:
+                return member
+        return None
+
+    def get_member_by_name(self, name):
+        for member in self.members:
+            _, member_name = member.split(',', 1)
+            if member_name == name:
                 return member
         return None
     
@@ -212,6 +240,56 @@ class GameRoom:
             await self.bot.send_message(voter_chat_id, "❌ رای نامعتبر! لطفا از گزینه ها انتخاب کنید")
             return False
     
+    async def handle_challange_request(self, requester_chat_id):
+        requester = self.get_member_by_chat_id(requester_chat_id)
+        requester_id = requester.split(',')[0]
+        requester_name = requester.split(',')[1]
+        if requester in self.dead_players:
+            await self.bot.send_message(requester_chat_id, "❌ شما مرده‌اید.")
+            return
+        if requester in self.challange_requests:
+            await self.bot.send_message(requester_chat_id, "❌ شما یکبار درخواست چالش داده اید.")
+            return
+        if requester_id == self.current_talker:
+            await self.bot.send_message(requester_chat_id, "❌ چالش به خودتان معنایی ندارد.")
+            return
+        if requester in self.done_challanges:
+            await self.bot.send_message(requester_chat_id, "❌ شما امروز یک بار چالش داشته اید.")
+            return
+        if self.challange_is_await:
+            await self.bot.send_message(requester_chat_id, "❌ شما نمی‌توانید از شخصی که در چالش است، چالش بگیرید.")
+            return
+        self.challange_accept_keyboard.add(bale.MenuKeyboardButton(f"قبول چالش {requester_name}"))
+        try:
+            await self.bot.send_message(self.current_talker, f"🤏 {requester_name} به شما درخواست چالش داد.", components=self.challange_accept_keyboard)
+            await self.broadcast_message(f"🤏 {requester_name} به {self.current_talker_name} درخواست چالش داد.", exclude_talker=True)
+        except:
+            self.challange_accept_keyboard = bale.MenuKeyboardMarkup()
+            await self.bot.send_message(requester_chat_id, "❌ شما درخواست چالش غیرمجاز دادید.")
+
+        self.challange_requests.append(requester)
+
+    async def handle_challange_acceptance(self, chat_id, message: str):
+        if str(self.current_talker) != str(chat_id):
+            return
+        
+        parts = message.split()
+        requester_name = " ".join(parts[2:]) 
+        
+        challenger = self.get_member_by_name(requester_name)
+        if not challenger: return
+
+        self.challange_await_memeber = challenger
+        
+        await self.broadcast_message(f"✅ {self.current_talker_name} چالش {requester_name} را قبول کرد.", component=self.challange_keyboard)
+        self.challange_done.clear()
+        await self.turn_done.wait()
+        self.challange_is_await = True
+        await self.start_talking_turn(challenger)
+        self.done_challanges.append(challenger)
+        self.challange_requests = []
+        self.challange_accept_keyboard = bale.MenuKeyboardMarkup()
+
     async def count_votes(self):
         if not self.votes:
             await self.broadcast_message("⏭️ هیچ رایی ثبت نشد.")
@@ -269,6 +347,7 @@ class GameRoom:
             await self.broadcast_message(f"💀 {target_name} اعدام شد!")
 
     async def night_phase(self):
+        self.done_challanges.clear()
         mafia_team_str = ""
         for member in self.mafia_team:
             temp = member.split(',', 1)
@@ -306,7 +385,7 @@ class GameRoom:
                 await self.day_inquire()
         else:
             self.mafia_phase = False
-            await self.broadcast_message("☀️ صبح شد!")
+            await self.broadcast_message("☀️ صبح شد!", component=self.challange_keyboard)
             self.first_day = False
     
     async def mafia_kill(self):
@@ -590,7 +669,7 @@ class GameRoom:
             kills += f"♦ {temp[1]}\n"
             await self.execution(self.sniper_target,night_mode=True)
             self.sniper_target = ""
-        await self.broadcast_message(kills)
+        await self.broadcast_message(kills, component=self.challange_keyboard)
 
     async def chaos_mode(self):
         self.chaos_phase = True
@@ -681,16 +760,18 @@ class GameRoom:
     async def run_game(self):
         await self.assign_roles()
         while self.game_active:
-            if self.game_active and len(self.alive_players) < 4:
-                await self.chaos_mode()
-                break
+            # if self.game_active and len(self.alive_players) < 4:
+            #     await self.chaos_mode()
+            #     break
             for member in self.alive_players:
-                if not self.game_active:
-                    break
+                if member in self.dead_players: continue
+                
+                self.turn_done.clear()
+                self.challange_is_await = False 
+                
                 await self.start_talking_turn(member)
-                await asyncio.sleep(32)
-                if not self.game_active:
-                    break
+                await self.turn_done.wait()
+                await self.challange_done.wait()
             if self.game_active and not self.first_day:
                 await self.start_voting()
             if await self.check_game_end():

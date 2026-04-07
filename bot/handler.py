@@ -40,7 +40,7 @@ async def room(bot, members_list):
         await game_room.run_game()
     except Exception as e:
         print(f"Error in room {room_id}: {e}")
-        await game_room.broadcast_message(f"❌ خطا در بازی: {str(e)}",components=start_keyboard)
+        await game_room.broadcast_message(f"❌ خطا در بازی: {str(e)}",component=start_keyboard)
     finally:
         if room_id in active_rooms:
             del active_rooms[room_id]
@@ -75,6 +75,10 @@ async def on_message(bot: bale.Bot, message: bale.Message):
                                     await game_room.handle_detect(chat_id, message.text)
                                 elif message.text.startswith("گرفتن استعلام کشته ها"):
                                     await game_room.handle_inquire(chat_id)
+                                elif message.text.startswith("چالش"):
+                                    await game_room.handle_challange_request(chat_id)
+                                elif message.text.startswith("قبول"):
+                                    await game_room.handle_challange_acceptance(chat_id, message.text)
                                 else:
                                     await game_room.handle_player_message(chat_id, message.text)
                                 return
@@ -108,7 +112,7 @@ async def on_message(bot: bale.Bot, message: bale.Message):
             memberlist = f.readlines()
         for i in range(1, len(memberlist)):
             members.append(memberlist[i][:-1])
-        if len(members) > 3:
+        if len(members) > 0:
             for member in members:
                 member_chat_id = member.split(',',1)
                 waiting_lobby.pop(member_chat_id[0])
