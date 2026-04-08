@@ -91,6 +91,10 @@ async def on_message(bot: bale.Bot, message: bale.Message):
                             await game_room.handle_detect(chat_id, message.text)
                         elif message.text.startswith("گرفتن استعلام کشته ها"):
                             await game_room.handle_inquire(chat_id)
+                        elif message.text == ("🤏 چالش"):
+                            await game_room.handle_challange(chat_id)
+                        elif message.text.startswith("چالش به "):
+                            await game_room.handle_accept(chat_id,message.text)
                         else:
                             await game_room.handle_player_message(chat_id, message.text)
                         return
@@ -167,19 +171,19 @@ async def on_message(bot: bale.Bot, message: bale.Message):
             with open("data/users.txt", 'a', encoding="utf-8") as f:
                 f.write(f"{message.from_user.chat_id}|{message.from_user.username}|{message.from_user.first_name}\n")
         
-        sub_check = await is_member(bot, message)
-        if sub_check == None:
-            new_url = message.text
-            new_url = new_url.replace("/","")
-            new_url = new_url.replace(" ","=")
-            new_url = f"https://ble.ir/{BOT_USERNAME}?" + new_url
-            subcheck_keyboard = bale.InlineKeyboardMarkup()
-            subcheck_keyboard.add(bale.InlineKeyboardButton("✅ عضو شدم",url=new_url))
-            subcheck_keyboard.add(bale.InlineKeyboardButton("💠 عضویت",url=f"https://ble.ir/{CHANNEL_USERNAME}"))
-            await message.reply(
-                f"سلام! خواهشا ابتدا در کانال اطلاع رسانی بات عضو شوید 🥰\n🆔 @{CHANNEL_USERNAME}\nسپس روی عضو شدم کلیک کنید.✨",
-                components=subcheck_keyboard)
-            return
+        # sub_check = await is_member(bot, message)
+        # if sub_check == None:
+        #     new_url = message.text
+        #     new_url = new_url.replace("/","")
+        #     new_url = new_url.replace(" ","=")
+        #     new_url = f"https://ble.ir/{BOT_USERNAME}?" + new_url
+        #     subcheck_keyboard = bale.InlineKeyboardMarkup()
+        #     subcheck_keyboard.add(bale.InlineKeyboardButton("✅ عضو شدم",url=new_url))
+        #     subcheck_keyboard.add(bale.InlineKeyboardButton("💠 عضویت",url=f"https://ble.ir/{CHANNEL_USERNAME}"))
+        #     await message.reply(
+        #         f"سلام! خواهشا ابتدا در کانال اطلاع رسانی بات عضو شوید 🥰\n🆔 @{CHANNEL_USERNAME}\nسپس روی عضو شدم کلیک کنید.✨",
+        #         components=subcheck_keyboard)
+        #     return
         if message.text == "/start":
             await message.reply(
                 text="سلام خوش اومدی به بات بازی مافیا🥹\n\n💥 برای شروع بازی روی ساخت گروه کلیک کن یا\n➖ /party\nرو بفرست😎",
