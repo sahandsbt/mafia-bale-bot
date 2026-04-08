@@ -54,7 +54,7 @@ async def room(bot, members_list):
         await game_room.run_game()
     except Exception as e:
         print(f"Error in room {room_id}: {e}")
-        await game_room.broadcast_message(f"❌ خطا در بازی: {str(e)}",component=start_keyboard)
+        await game_room.broadcast_message(f"❌ خطا در بازی: {str(e)}",components=start_keyboard)
     finally:
         if room_id in active_rooms:
             del active_rooms[room_id]
@@ -70,35 +70,31 @@ async def on_message(bot: bale.Bot, message: bale.Message):
     
     chat_id = str(message.chat_id)
     for room_id, game_room in active_rooms.items():
-                async with room_locks.get(room_id, asyncio.Lock()):
-                    for member in game_room.members:
-                        member_chat_id, _ = member.split(',', 1)
-                        if member_chat_id == chat_id:
-                            if game_room.game_active and message.text:
-                                if message.text.startswith("رای به"):
-                                    await game_room.handle_vote(chat_id, message.text)
-                                elif message.text.startswith("دست دادن با"):
-                                    await game_room.handle_handshake(chat_id, message.text)
-                                elif message.text.startswith("کشتن"):
-                                    await game_room.handle_kill(chat_id, message.text)
-                                elif message.text.startswith("اسنایپ"):
-                                    await game_room.handle_snipe(chat_id, message.text)
-                                elif message.text.startswith("نجات"):
-                                    await game_room.handle_save(chat_id, message.text)
-                                elif message.text.startswith("حفاظت از"):
-                                    await game_room.handle_prot(chat_id, message.text)
-                                elif message.text.startswith("استعلام"):
-                                    await game_room.handle_detect(chat_id, message.text)
-                                elif message.text.startswith("گرفتن استعلام کشته ها"):
-                                    await game_room.handle_inquire(chat_id)
-                                elif message.text.startswith("چالش"):
-                                    await game_room.handle_challange_request(chat_id)
-                                elif message.text.startswith("قبول"):
-                                    await game_room.handle_challange_acceptance(chat_id, message.text)
-                                else:
-                                    await game_room.handle_player_message(chat_id, message.text)
-                                return
-                            break
+        async with room_locks.get(room_id, asyncio.Lock()):
+            for member in game_room.members:
+                member_chat_id, _ = member.split(',', 1)
+                if member_chat_id == chat_id:
+                    if game_room.game_active and message.text:
+                        if message.text.startswith("رای به"):
+                            await game_room.handle_vote(chat_id, message.text)
+                        elif message.text.startswith("دست دادن با"):
+                            await game_room.handle_handshake(chat_id, message.text)
+                        elif message.text.startswith("کشتن"):
+                            await game_room.handle_kill(chat_id, message.text)
+                        elif message.text.startswith("اسنایپ"):
+                            await game_room.handle_snipe(chat_id, message.text)
+                        elif message.text.startswith("نجات"):
+                            await game_room.handle_save(chat_id, message.text)
+                        elif message.text.startswith("حفاظت از"):
+                            await game_room.handle_prot(chat_id, message.text)
+                        elif message.text.startswith("استعلام"):
+                            await game_room.handle_detect(chat_id, message.text)
+                        elif message.text.startswith("گرفتن استعلام کشته ها"):
+                            await game_room.handle_inquire(chat_id)
+                        else:
+                            await game_room.handle_player_message(chat_id, message.text)
+                        return
+                    break
     
     if message.text == "🚪 خروج 🚪" and (message.from_user.chat_id in waiting_lobby):
         inviter = waiting_lobby[message.from_user.chat_id]
@@ -128,7 +124,7 @@ async def on_message(bot: bale.Bot, message: bale.Message):
             memberlist = f.readlines()
         for i in range(1, len(memberlist)):
             members.append(memberlist[i][:-1])
-        if len(members) > 0:
+        if len(members) > 3:
             for member in members:
                 member_chat_id = member.split(',',1)
                 waiting_lobby.pop(member_chat_id[0])
