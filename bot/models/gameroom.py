@@ -135,7 +135,7 @@ class GameRoom:
     async def end_talking_turn(self):
         if self.execute_condidates: duration = 45
         elif self.challange_is_await: duration = 20
-        else: duration = 30
+        else: duration = 60
 
         await asyncio.sleep(duration)
 
