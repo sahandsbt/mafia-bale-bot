@@ -6,7 +6,10 @@ import asyncio
 from collections import defaultdict
 from typing import List
 
-from config import logger
+start_keyboard = bale.MenuKeyboardMarkup()
+start_keyboard.add(bale.MenuKeyboardButton("🎡 ساخت گروه 🎡"),row=1)
+start_keyboard.add(bale.MenuKeyboardButton("❓ راهنما"),row=2)
+start_keyboard.add(bale.MenuKeyboardButton("☎ پشتیبانی"),row=2)
 
 class GameRoom:
     def __init__(self, bot: bale.Bot, members_list: List[str]):
@@ -195,7 +198,7 @@ class GameRoom:
                 current_row = (self.execute_condidates.index(member) + 3) // 3
                 voting_keyboard.add(bale.MenuKeyboardButton(f"رای به {name_id[1]}"),row=current_row)
                 await self.start_talking_turn(member)
-                await asyncio.sleep(47)
+                await asyncio.sleep(62)
         else:
             for member in self.alive_players:
                 name_id = member.split(',', 1)
@@ -205,7 +208,7 @@ class GameRoom:
         for member in self.alive_players:
             chat_id = member.split(',', 1)
             await self.bot.send_message(chat_id[0], f"🗳️ رای‌گیری شروع شد!\n"
-            "برای رای دادن از دکمه ها استفاده کنید. سی ثانیه فرصت دارید",components=voting_keyboard)
+            "برای رای دادن از دکمه ها استفاده کنید. 30 ثانیه فرصت دارید",components=voting_keyboard)
         await asyncio.sleep(30)
         await self.count_votes()
     
@@ -381,6 +384,9 @@ class GameRoom:
                 await asyncio.sleep(20)
                 self.detect_phase = False
             await self.night_events()
+            if await self.check_game_end():
+                self.game_active = False
+                return
             if self.left_inquire > 0:
                 await self.day_inquire()
         else:
@@ -621,8 +627,8 @@ class GameRoom:
         self.inquire_phase = True
         for member in self.alive_players:
             chat_id = member.split(',', 1)
-            await self.bot.send_message(chat_id[0], f"🧿 برای رای به گرفتن استعلام کشته ها 15 ثانیه فرصت دارید. تنها دوبار میتوان استعلام گرفت!",components=inquire_keyboard)
-        await asyncio.sleep(15)
+            await self.bot.send_message(chat_id[0], f"🧿 برای رای به گرفتن استعلام کشته ها 20 ثانیه فرصت دارید. تنها دوبار میتوان استعلام گرفت!",components=inquire_keyboard)
+        await asyncio.sleep(20)
         await self.count_inquire()
     
     async def handle_inquire(self, inquire_chat_id):
@@ -694,6 +700,8 @@ class GameRoom:
             else:
                 await self.bot.send_message(chat_id[0], "🤝 30 ثانیه فرصت دارید با شهروند دیگر دست دهید. بادقت انتخاب کنید!\n❗ اگر در این فرصت دست ندهید مافیا برنده میشود.",components=handshake_keyboard)
         await asyncio.sleep(20)
+        if not self.game_active:
+            return
         for member in self.alive_players:
             chat_id = member.split(',', 1)
             if (member not in self.mafia_team) and (member not in self.chaos_win):
@@ -705,9 +713,9 @@ class GameRoom:
                 member_name = member.split(',',1)
                 roles_str += f"🔹 {member_name[1]}: {self.roles[member]}\n"
             if len(self.chaos_win) < 2:
-                await self.broadcast_message(f"💔 همه شهروندان دست ندادند!\n\n😈 بازی تمام شد! مافیا برنده شد!\n\n{roles_str}")
+                await self.broadcast_message(f"💔 همه شهروندان دست ندادند!\n\n😈 بازی تمام شد! مافیا برنده شد!\n\n{roles_str}",component=start_keyboard)
             else:
-                await self.broadcast_message(f"🔥 شهروندان با هم دست دادند!\n\n🎉 بازی تمام شد! شهروندان برنده شدند!\n\n{roles_str}")
+                await self.broadcast_message(f"🔥 شهروندان با هم دست دادند!\n\n🎉 بازی تمام شد! شهروندان برنده شدند!\n\n{roles_str}",component=start_keyboard)
             self.game_active = False
     
     async def handle_handshake(self, voter_chat_id, vote_input):
@@ -734,7 +742,7 @@ class GameRoom:
                         for member in self.roles:
                             member_name = member.split(',',1)
                             roles_str += f"🔹 {member_name[1]}: {self.roles[member]}\n"
-                        await self.broadcast_message(f"💔 {shaker_name} با مافیا دست داد!\n\n😈 بازی تمام شد! مافیا برنده شد!\n\n{roles_str}")
+                        await self.broadcast_message(f"💔 {shaker_name} با مافیا دست داد!\n\n😈 بازی تمام شد! مافیا برنده شد!\n\n{roles_str}",component=start_keyboard)
                         self.game_active = False
                     else:
                         self.chaos_win.append(shaker_member)
@@ -750,10 +758,10 @@ class GameRoom:
                 member_name = member.split(',',1)
                 roles_str += f"🔹 {member_name[1]}: {self.roles[member]}\n"
         if self.maf_count == 0:
-            await self.broadcast_message(f"🎉 بازی تمام شد! شهروندان برنده شدند!\n\n{roles_str}")
+            await self.broadcast_message(f"🎉 بازی تمام شد! شهروندان برنده شدند!\n\n{roles_str}",component=start_keyboard)
             return True
         elif self.maf_count >= self.cit_count:
-            await self.broadcast_message(f"😈 بازی تمام شد! مافیا برنده شد!\n\n{roles_str}")
+            await self.broadcast_message(f"😈 بازی تمام شد! مافیا برنده شد!\n\n{roles_str}",component=start_keyboard)
             return True
         return False
     

@@ -6,7 +6,10 @@ import bale
 import os
 
 from bot.models.gameroom import GameRoom
+from dotenv import load_dotenv
 from config import *
+from bot.utils import *
+import bot.docs as docs
 
 # Keyboards
 start_keyboard = bale.MenuKeyboardMarkup()
@@ -18,6 +21,13 @@ leader_keyboard = bale.MenuKeyboardMarkup()
 leader_keyboard.add(bale.MenuKeyboardButton("🎮 شروع بازی 🎮"))
 leader_keyboard.add(bale.MenuKeyboardButton("🛑 حذف گروه 🛑"))
 
+docs_keyboard = bale.InlineKeyboardMarkup()
+docs_keyboard.add(bale.InlineKeyboardButton(text="⁉ قوانین", callback_data="mafiabot:rules"))
+docs_keyboard.add(bale.InlineKeyboardButton(text="🕵️‍♂️ نقش ها", callback_data="mafiabot:roles"))
+
+helpback_keyboard = bale.InlineKeyboardMarkup()
+helpback_keyboard.add(bale.InlineKeyboardButton(text="🔙 بازگشت به راهنما", callback_data="mafiabot:helpback"))
+
 invited_keyboard = bale.MenuKeyboardMarkup()
 invited_keyboard.add(bale.MenuKeyboardButton("🚪 خروج 🚪"))
 
@@ -27,6 +37,10 @@ async def on_ready(bot: bale.Bot):
     logger.info(f"Logged in as {bot.user.username} - ID: {bot.user.id}")
     logger.info("Bot is now ready and online!")
 
+load_dotenv()
+CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME")
+BOT_USERNAME = os.getenv("BOT_USERNAME")
+ADMIN_ID = os.getenv("ADMIN_ID")
 active_rooms: Dict[str, GameRoom] = {}
 waiting_lobby = {}
 room_locks = {}
@@ -51,8 +65,10 @@ async def on_message(bot: bale.Bot, message: bale.Message):
     if message.text == None:
         logger.warning(f"Unsupported type of message sent. | Name: {message.from_user.first_name} - ID: {message.from_user.id}")
         return
+    if not message.from_user.first_name:
+        return
+    
     chat_id = str(message.chat_id)
-
     for room_id, game_room in active_rooms.items():
                 async with room_locks.get(room_id, asyncio.Lock()):
                     for member in game_room.members:
@@ -154,6 +170,20 @@ async def on_message(bot: bale.Bot, message: bale.Message):
         if new_user not in all_users:
             with open("data/users.txt", 'a', encoding="utf-8") as f:
                 f.write(f"{message.from_user.chat_id}|{message.from_user.username}|{message.from_user.first_name}\n")
+        
+        sub_check = await is_member(bot, message)
+        if sub_check == None:
+            new_url = message.text
+            new_url = new_url.replace("/","")
+            new_url = new_url.replace(" ","=")
+            new_url = f"https://ble.ir/{BOT_USERNAME}?" + new_url
+            subcheck_keyboard = bale.InlineKeyboardMarkup()
+            subcheck_keyboard.add(bale.InlineKeyboardButton("✅ عضو شدم",url=new_url))
+            subcheck_keyboard.add(bale.InlineKeyboardButton("💠 عضویت",url=f"https://ble.ir/{CHANNEL_USERNAME}"))
+            await message.reply(
+                f"سلام! خواهشا ابتدا در کانال اطلاع رسانی بات عضو شوید 🥰\n🆔 @{CHANNEL_USERNAME}\nسپس روی عضو شدم کلیک کنید.✨",
+                components=subcheck_keyboard)
+            return
         if message.text == "/start":
             await message.reply(
                 text="سلام خوش اومدی به بات بازی مافیا🥹\n\n💥 برای شروع بازی روی ساخت گروه کلیک کن یا\n➖ /party\nرو بفرست😎",
@@ -176,7 +206,7 @@ async def on_message(bot: bale.Bot, message: bale.Message):
                         memberlist += f"🔅{temp[1]}"
                     await bot.edit_message(
                         meschat_id[0], meschat_id[1][:-1],
-                        f"⚔ اینو برا دوستات بفرست:\nhttps://ble.ir/sasabot?start={start_code}\n\n⏰ افراد اضافه شده:\n{memberlist}",
+                        f"⚔ اینو برا دوستات بفرست:\nhttps://ble.ir/{BOT_USERNAME}?start={start_code}\n\n⏰ افراد اضافه شده:\n{memberlist}",
                         components=leader_keyboard)
                     await message.reply(
                         text=f"🔥 به بازی اضافه شدی. وایستا تا بازی شروع شه.\n\n⏰ اعضای فعلی:\n{memberlist}",
@@ -188,7 +218,7 @@ async def on_message(bot: bale.Bot, message: bale.Message):
     
     elif message.text == "🎡 ساخت گروه 🎡" or message.text == "/party":
         await message.reply(
-            text=f"⚔ اینو برا دوستات بفرست:\nhttps://ble.ir/sasabot?start=party-{message.from_user.id}",
+            text=f"⚔ اینو برا دوستات بفرست:\nhttps://ble.ir/{BOT_USERNAME}?start=party-{message.from_user.id}",
             components=leader_keyboard)
         with open(f"{message.from_user.id}.txt", 'w', encoding="utf-8") as f:
             f.write(f"{message.chat_id},{int(message.message_id) + 1}\n")
@@ -198,8 +228,19 @@ async def on_message(bot: bale.Bot, message: bale.Message):
         await message.reply(text="📣 در صورت بروز هرگونه مشکل فنی خواهشمندیم به\n🆔 @sahandsbt\nدر بله یا تلگرام پیام دهید.")
     
     elif message.text == "❓ راهنما" or message.text == "/help":
-        await message.reply(text="😑 داریم روش کار میکنیم. (مافیا راهنما میخواد آخه؟)")
-     
+        await message.reply(text=docs.main_help,components=docs_keyboard)
+    
+    elif message.text == "/admin" and message.from_user.id == ADMIN_ID:
+        await message.reply(text="💝 Comming Soon!")
+        
     else:
         await message.reply(text="😒 دستور نامعتبر!")
         logger.warning(f"Unsupported command sent. | Name: {message.from_user.first_name} - ID: {message.from_user.id}")
+
+async def on_callback(bot: bale.Bot, callback: bale.CallbackQuery):
+    if callback.data == "mafiabot:roles":
+        await callback.message.edit(docs.roles_help,components=helpback_keyboard)
+    elif callback.data == "mafiabot:rules":
+        await callback.message.edit(docs.rules_help,components=helpback_keyboard)
+    elif callback.data == "mafiabot:helpback":
+        await callback.message.edit(docs.main_help,components=docs_keyboard)
