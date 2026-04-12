@@ -6,6 +6,7 @@ import bale
 import os
 
 from bot.models.gameroom import GameRoom
+from bot.models.admin import *
 from dotenv import load_dotenv
 from config import *
 from bot.utils import *
@@ -21,6 +22,9 @@ BOT_USERNAME = os.getenv("BOT_USERNAME")
 ADMIN_ID = os.getenv("ADMIN_ID")
 DONATE_URL = os.getenv("DONATE_URL")
 active_rooms: Dict[str, GameRoom] = {}
+queue_members = {}
+public_queue = []
+queue_lock = asyncio.Lock()
 waiting_lobby = {}
 room_locks = {}
 
@@ -83,21 +87,21 @@ async def on_message(bot: bale.Bot, message: bale.Message):
                 member_chat_id, _ = member.split(',', 1)
                 if member_chat_id == chat_id:
                     if game_room.game_active and message.text:
-                        if message.text.startswith("رای به"):
+                        if message.text.startswith("رای به "):
                             await game_room.handle_vote(chat_id, message.text)
-                        elif message.text.startswith("دست دادن با"):
+                        elif message.text.startswith("دست دادن با "):
                             await game_room.handle_handshake(chat_id, message.text)
-                        elif message.text.startswith("کشتن"):
+                        elif message.text.startswith("کشتن "):
                             await game_room.handle_kill(chat_id, message.text)
-                        elif message.text.startswith("اسنایپ"):
+                        elif message.text.startswith("اسنایپ "):
                             await game_room.handle_snipe(chat_id, message.text)
-                        elif message.text.startswith("نجات"):
+                        elif message.text.startswith("نجات "):
                             await game_room.handle_save(chat_id, message.text)
-                        elif message.text.startswith("حفاظت از"):
+                        elif message.text.startswith("حفاظت از "):
                             await game_room.handle_prot(chat_id, message.text)
-                        elif message.text.startswith("استعلام"):
+                        elif message.text.startswith("استعلام "):
                             await game_room.handle_detect(chat_id, message.text)
-                        elif message.text.startswith("گرفتن استعلام کشته ها"):
+                        elif message.text.startswith("گرفتن استعلام کشته ها "):
                             await game_room.handle_inquire(chat_id)
                         elif message.text == ("🤏 چالش"):
                             await game_room.handle_challange(chat_id)
@@ -149,27 +153,25 @@ async def on_message(bot: bale.Bot, message: bale.Message):
             start_code_list = message.text.split()
             start_code = start_code_list[1]
             if start_code.startswith("party-") and (message.from_user.id != start_code[6:]) :
-                invite_code = start_code[6:]
+                invite_code = int(start_code[6:])
                 try:
-                    room_file = open(f"{invite_code}.txt", 'r', encoding="utf-8")
-                    ids = room_file.readlines()
-                    with open(f"{invite_code}.txt", 'a', encoding="utf-8") as f:
-                        f.write(f"{message.from_user.chat_id},{message.from_user.first_name}\n")
+                    async with queue_lock:
+                        queue_members[invite_code].append(f"{message.from_user.chat_id},{message.from_user.first_name}")
+                    ids = queue_members[invite_code]
                     meschat_id = ids[0].split(',')
-                    memberlist = f"🔅{message.from_user.first_name}\n"
+                    memberlist = f"🔅{meschat_id[2]}\n"
                     for i in range(1, len(ids)):
                         temp = ids[i].split(sep=',', maxsplit=1)
                         await bot.send_message(temp[0],f"💠 {message.from_user.first_name} به گروه اضافه شد.")
-                        memberlist += f"🔅{temp[1]}"
+                        memberlist += f"🔅{temp[1]}\n"
                     await bot.edit_message(
-                        meschat_id[0], meschat_id[1][:-1],
+                        meschat_id[0], meschat_id[1],
                         f"⚔ اینو برا دوستات بفرست:\nhttps://ble.ir/{BOT_USERNAME}?start={start_code}\n\n⏰ افراد اضافه شده:\n{memberlist}",
                         components=leader_keyboard)
                     await message.reply(
                         text=f"🔥 به بازی اضافه شدی. وایستا تا بازی شروع شه.\n\n⏰ اعضای فعلی:\n{memberlist}",
                         components=invited_keyboard)
                     waiting_lobby[message.from_user.chat_id] = invite_code
-                    room_file.close()
                 except:
                     await message.reply(text="🗿 گروه مدنظر وجود ندارد.")
     
@@ -177,15 +179,13 @@ async def on_message(bot: bale.Bot, message: bale.Message):
         await message.reply(text="🕹 لطفا نوع گروه را انتخاب کنید.",components=create_keyboard)
     
     elif message.text == "🎲 گروه عمومی 🎲":
-        with open("public_party.txt", 'r', encoding="utf-8") as f:
-            rooms = f.readlines()
         public_rooms = bale.InlineKeyboardMarkup()
-        for rm in rooms:
-            rm_id, rm_name = rm.split(",",1)
-            with open(f"{rm_id}.txt", 'r', encoding="utf-8") as f:
-                count = len(f.readlines())
-            invite_url = f"https://ble.ir/{BOT_USERNAME}?start=party-{rm_id}"
-            public_rooms.add(bale.InlineKeyboardButton(f"گروه {rm_name} با {count} نفر",url=invite_url),row=rooms.index(rm)+1)
+        async with queue_lock:
+            for rm in public_queue:
+                rm_id, rm_name = rm.split(",",1)
+                count = len(queue_members[int(rm_id)])
+                invite_url = f"https://ble.ir/{BOT_USERNAME}?start=party-{rm_id}"
+                public_rooms.add(bale.InlineKeyboardButton(f"گروه {rm_name} با {count} نفر",url=invite_url),row=public_queue.index(rm)+1)
         await message.reply(text="🌱 گروه های فعال:",components=public_rooms)
 
     elif message.text == "☎ پشتیبانی" or message.text == "/support":
@@ -196,9 +196,10 @@ async def on_message(bot: bale.Bot, message: bale.Message):
         
     elif message.text == "❓ راهنما" or message.text == "/help":
         await message.reply(text=docs.main_help,components=docs_keyboard)
+
     elif message.text == "/admin" and str(message.from_user.id) == ADMIN_ID:
-        await message.reply(text="💝 Comming Soon!")
-        
+        await admin_menu(message)
+
     else:
         await message.reply(text="😒 دستور نامعتبر!")
         logger.warning(f"Unsupported command sent. | Name: {message.from_user.first_name} - ID: {message.from_user.id}")
@@ -214,30 +215,22 @@ async def on_callback(bot: bale.Bot, callback: bale.CallbackQuery):
         await callback.message.edit(docs.main_help,components=docs_keyboard)
 
     elif callback.data == "mafiabot:startparty":
-        try:
-            with open(f"{callback.from_user.id}.txt", 'r', encoding="utf-8") as f:
-                memberlist = f.readlines()
-        except:
-            await bot.send_message(callback.from_user.chat_id, "⚠ شما لیدر گروهی نیستید!")
-            return
-        with open("public_party.txt", 'r', encoding="utf-8") as f:
-            lines = f.readlines()
-        new_line = f"{callback.from_user.id},{callback.from_user.first_name}\n"
-        if new_line in lines:
-            lines.remove(new_line)
-            ids_str = ""
-            for i in lines:
-                ids_str += i
-            with open("public_party.txt", "w", encoding="utf-8") as f:
-                f.write(ids_str)
-        members = [f"{callback.from_user.chat_id},{callback.from_user.first_name}"]
-        for i in range(1, len(memberlist)):
-            members.append(memberlist[i][:-1])
+        async with queue_lock:
+            if callback.from_user.id not in queue_members:
+                await bot.send_message(callback.from_user.chat_id, "⚠ شما لیدر گروهی نیستید!")
+                return
+            temp_line = f"{callback.from_user.id},{callback.from_user.first_name}"
+            if temp_line in public_queue:
+                public_queue.remove(temp_line)
+            members = [f"{callback.from_user.chat_id},{callback.from_user.first_name}"]
+            memberlist = queue_members[callback.from_user.id]
+            for i in range(1, len(memberlist)):
+                members.append(memberlist[i])
         if len(members) > 3:
             for member in members:
                 member_chat_id = member.split(',',1)
                 waiting_lobby.pop(member_chat_id[0])
-            os.remove(f"{callback.from_user.id}.txt")
+            queue_members.pop(callback.from_user.id)
             asyncio.create_task(room(bot, members))
         else:
             await bot.send_message(callback.from_user.chat_id, "⚠ حداقل تعداد برای شروع 4 نفر است!")
@@ -245,44 +238,32 @@ async def on_callback(bot: bale.Bot, callback: bale.CallbackQuery):
     elif callback.data == "mafiabot:deleteparty":
         members = [callback.from_user.chat_id]
         memberlist = []
-        try:
-            with open(f"{callback.from_user.id}.txt", 'r', encoding="utf-8") as f:
-                memberlist = f.readlines()
-        except:
-            await bot.send_message(callback.from_user.chat_id, "⚠ شما لیدر گروهی نیستید!")
-            return
-        with open("public_party.txt", 'r', encoding="utf-8") as f:
-            lines = f.readlines()
-        new_line = f"{callback.from_user.id},{callback.from_user.first_name}\n"
-        if new_line in lines:
-            lines.remove(new_line)
-            ids_str = ""
-            for i in lines:
-                ids_str += i
-            with open("public_party.txt", "w", encoding="utf-8") as f:
-                f.write(ids_str)
-        for i in memberlist:
-            chatid = i.split(',',1)
-            waiting_lobby.pop(chatid[0])
-            await bot.send_message(chatid[0],"📛 گروه توسط لیدر حذف شد!")
-        os.remove(f"{callback.from_user.id}.txt")
+        async with queue_lock:
+            if callback.from_user.id not in queue_members:
+                await bot.send_message(callback.from_user.chat_id, "⚠ شما لیدر گروهی نیستید!")
+                return
+            temp_line = f"{callback.from_user.id},{callback.from_user.first_name}"
+            if temp_line in public_queue:
+                public_queue.remove(temp_line)
+            for i in queue_members[callback.from_user.id]:
+                chatid = i.split(',',1)
+                waiting_lobby.pop(chatid[0])
+                await bot.send_message(chatid[0],"📛 گروه توسط لیدر حذف شد!")
+            queue_members.pop(callback.from_user.id)
 
     elif callback.data == "mafiabot:exitparty" and (callback.from_user.chat_id in waiting_lobby):
         inviter = waiting_lobby[callback.from_user.chat_id]
-        room_file = open(f"{inviter}.txt", 'r', encoding="utf-8")
-        ids = room_file.readlines()
-        new_line = f"{callback.from_user.chat_id},{callback.from_user.first_name}\n"
-        if new_line in ids:
-            ids.remove(new_line)
-        else:
-            await bot.send_message(callback.from_user.chat_id, "⚠ شما به گروهی دعوت نشده اید!")
-            return
-        room_file.close()
-        ids_str = ""
+        async with queue_lock:
+            temp_member = f"{callback.from_user.chat_id},{callback.from_user.first_name}"
+            ids = queue_members[inviter]
+            if temp_member in queue_members[inviter]:
+                queue_members[inviter].remove(temp_member)
+            else:
+                await bot.send_message(callback.from_user.chat_id, "⚠ شما به گروهی دعوت نشده اید!")
+                return
         for i in ids:
-            ids_str += i
-        with open(f"{inviter}.txt", "w", encoding="utf-8") as f:
-            f.write(ids_str)
+            temp = i.split(',',1)
+            await bot.send_message(temp[0],f"⭕ {callback.from_user.first_name} از گروه خارج شد.")
         waiting_lobby.pop(callback.from_user.chat_id)
         await bot.send_message(callback.from_user.chat_id, "🚦 از گروه خارج شدید.")
 
@@ -294,11 +275,19 @@ async def on_callback(bot: bale.Bot, callback: bale.CallbackQuery):
 
     elif callback.data.startswith("mafiabot:create-"):
         if callback.data == "mafiabot:create-public":
-            with open("public_party.txt", 'a', encoding="utf-8") as f:
-                f.write(f"{callback.from_user.id},{callback.from_user.first_name}\n")
+            async with queue_lock:
+                public_queue.append(f"{callback.from_user.id},{callback.from_user.first_name}")
         await callback.message.edit(
             text=f"⚔ اینو برا دوستات بفرست:\nhttps://ble.ir/{BOT_USERNAME}?start=party-{callback.from_user.id}",
             components=leader_keyboard)
-        with open(f"{callback.from_user.id}.txt", 'w', encoding="utf-8") as f:
-            f.write(f"{callback.from_user.chat_id},{callback.message.message_id}\n")
+        async with queue_lock:
+            queue_members[callback.from_user.id] = [f"{callback.from_user.chat_id},{callback.message.message_id},{callback.from_user.first_name}"]
         waiting_lobby[callback.from_user.chat_id] = callback.from_user.id
+    
+    elif callback.data.startswith("mafiaadmin:") and str(callback.from_user.id) == ADMIN_ID:
+        if callback.data == "mafiaadmin:groups":
+            await active_groups(bot, queue_members, callback)
+        elif callback.data == "mafiaadmin:rooms":
+            await bot.send_message(callback.from_user.chat_id, f"🕹 {len(active_rooms)} اتاق فعال وجود دارند.")
+        elif callback.data == "mafiaadmin:users":
+            await last_users(bot, callback)
