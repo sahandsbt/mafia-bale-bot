@@ -318,7 +318,7 @@ class GameRoom:
             else:
                 target_chat_id = candidates[0]
                 target_member = self.get_member_by_chat_id(target_chat_id)
-                if max_votes >= ((len(self.alive_players) + 1) // 2):
+                if max_votes >= ((len(self.alive_players) + 1) // 2) or len(self.execute_condidates) > 1:
                     if target_member in self.alive_players:
                         await self.execution(target_member)
                 else:
