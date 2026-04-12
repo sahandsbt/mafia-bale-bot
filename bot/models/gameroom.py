@@ -7,9 +7,11 @@ from collections import defaultdict
 from typing import List
 
 start_keyboard = bale.MenuKeyboardMarkup()
-start_keyboard.add(bale.MenuKeyboardButton("🎡 ساخت گروه 🎡"), row=1)
-start_keyboard.add(bale.MenuKeyboardButton("❓ راهنما"), row=2)
-start_keyboard.add(bale.MenuKeyboardButton("☎ پشتیبانی"), row=2)
+start_keyboard.add(bale.MenuKeyboardButton("🎡 ساخت گروه 🎡"),row=1)
+start_keyboard.add(bale.MenuKeyboardButton("🎲 گروه عمومی 🎲"),row=1)
+start_keyboard.add(bale.MenuKeyboardButton("❓ راهنما"),row=2)
+start_keyboard.add(bale.MenuKeyboardButton("✨ دونیت"),row=2)
+start_keyboard.add(bale.MenuKeyboardButton("☎ پشتیبانی"),row=2)
 
 talking_keyboard = bale.MenuKeyboardMarkup()
 talking_keyboard.add(bale.MenuKeyboardButton("👍 لایک"), row=1)
