@@ -108,7 +108,7 @@ async def on_message(bot: bale.Bot, message: bale.Message):
                         elif message.text.startswith("چالش به "):
                             await game_room.handle_accept(chat_id,message.text)
                         else:
-                            await game_room.handle_player_message(chat_id, message.text)
+                            await game_room.handle_player_message(chat_id, message)
                         return
                     break
     
@@ -291,3 +291,19 @@ async def on_callback(bot: bale.Bot, callback: bale.CallbackQuery):
             await bot.send_message(callback.from_user.chat_id, f"🕹 {len(active_rooms)} اتاق فعال وجود دارند.")
         elif callback.data == "mafiaadmin:users":
             await last_users(bot, callback)
+
+    elif callback.data.startswith("mafiaroom:"):
+        chat_id = str(callback.from_user.chat_id)
+        for room_id, game_room in active_rooms.items():
+            async with room_locks.get(room_id, asyncio.Lock()):
+                for member in game_room.members:
+                    member_chat_id, _ = member.split(',', 1)
+                    if member_chat_id == chat_id:
+                        if game_room.game_active and callback.data:
+                            if callback.data == "mafiaroom:like":
+                                await game_room.handle_react(chat_id, callback, True)
+                            elif callback.data == "mafiaroom:dislike":
+                                await game_room.handle_react(chat_id, callback, False)
+                            else:
+                                await bot.send_message(chat_id,"❗ در بازی فعالی نیستید!")
+                        break

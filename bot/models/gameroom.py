@@ -13,10 +13,12 @@ start_keyboard.add(bale.MenuKeyboardButton("❓ راهنما"),row=2)
 start_keyboard.add(bale.MenuKeyboardButton("✨ دونیت"),row=2)
 start_keyboard.add(bale.MenuKeyboardButton("☎ پشتیبانی"),row=2)
 
-talking_keyboard = bale.MenuKeyboardMarkup()
-talking_keyboard.add(bale.MenuKeyboardButton("👍 لایک"), row=1)
-talking_keyboard.add(bale.MenuKeyboardButton("👎 دیسلایک"), row=1)
-talking_keyboard.add(bale.MenuKeyboardButton("🤏 چالش"), row=2)
+challange_keyboard = bale.MenuKeyboardMarkup()
+challange_keyboard.add(bale.MenuKeyboardButton("🤏 چالش"))
+
+react_keyboard = bale.InlineKeyboardMarkup()
+react_keyboard.add(bale.InlineKeyboardButton("👎 دیسلایک", callback_data="mafiaroom:dislike"))
+react_keyboard.add(bale.InlineKeyboardButton("👍 لایک", callback_data="mafiaroom:like"))
 
 class GameRoom:
     def __init__(self, bot: bale.Bot, members_list: List[str]):
@@ -33,6 +35,9 @@ class GameRoom:
         self.challange_gotten = []
         self.challange_requested = []
         self.challange_phase = False
+        self.reacts = {}
+        self.turn_messages = {}
+        self.talker_messages = []
         self.maf_count = 0
         self.cit_count = 0
         self.mafia_phase = False
@@ -56,7 +61,7 @@ class GameRoom:
         self.lecter = ""
         self.detective = ""
         self.votes = defaultdict(set)
-        self.vote_lock = asyncio.Lock()
+        self.handle_lock = asyncio.Lock()
         self.dead_players = set()
         self.inquired_roles = []
         self.inquire_vote = []
@@ -106,14 +111,19 @@ class GameRoom:
         for role in self.roles.values():
             role_count[role] = role_count.get(role, 0) + 1
     
-    async def broadcast_message(self, message, exclude_talker = False, exclude_dead = False, component = None):
+    async def broadcast_message(self, message, exclude_talker = False, exclude_dead = False, component = None, save_messages = False):
         for member in self.members:
             chat_id = member.split(',', 1)
             if exclude_talker and self.current_talker == chat_id[0]:
                 continue
             if exclude_dead and member in self.dead_players:
                 continue
-            await self.bot.send_message(chat_id[0], message, components=component)
+            temp_message = await self.bot.send_message(chat_id[0], message, components=component)
+            if save_messages:
+                try:
+                    self.turn_messages[message.split(': ',1)[1]].append(temp_message)
+                except:
+                    self.turn_messages[message.split(': ',1)[1]] = [temp_message]
     
     async def start_talking_turn(self, member):
         chat_id, name = member.split(',', 1)
@@ -130,7 +140,7 @@ class GameRoom:
             for i in self.challange_requested:
                 i_name = i.split(',',1)
                 challange_keyboard.add(bale.MenuKeyboardButton(f"چالش به {i_name[1]}"))
-            await self.broadcast_message(f"🗣️ نوبت حرف زدن {name} است.",exclude_talker=True,exclude_dead=True,component=talking_keyboard)
+            await self.broadcast_message(f"🗣️ نوبت حرف زدن {name} است.",exclude_talker=True,exclude_dead=True,component=challange_keyboard)
             await self.bot.send_message(chat_id,"⏳ نوبت حرف زدن شماست. تا 60 ثانیه تمام پیام‌های شما برای بقیه ارسال می‌شود.",components=challange_keyboard)
             await asyncio.sleep(60)
         await self.end_talking_turn()
@@ -143,9 +153,13 @@ class GameRoom:
             await self.bot.send_message(self.current_talker,"⏰ زمان صحبت شما به پایان رسید.")
             self.current_talker = None
             self.current_talker_name = None
+            self.reacts.clear()
+            self.turn_messages.clear()
+            self.talker_messages.clear()
             await asyncio.sleep(2)
     
-    async def handle_player_message(self, chat_id, message):
+    async def handle_player_message(self, chat_id, message_obj):
+        message = message_obj.text
         if not self.game_active:
             return False
         member_str = self.get_member_by_chat_id(chat_id)
@@ -161,7 +175,9 @@ class GameRoom:
                 await self.bot.send_message(i_id[0],f"📢 {talker[1]}: {message}")
             return True
         if self.current_talker == chat_id:
-            await self.broadcast_message(f"📢 {self.current_talker_name}: {message}",exclude_talker=True)
+            await self.broadcast_message(f"📢 {self.current_talker_name}: {message}",exclude_talker=True, component=react_keyboard, save_messages=True)
+            self.reacts[message] = {}
+            self.talker_messages.append(message_obj)
             return True
         if self.mafia_phase and (member_str in self.mafia_team):
             for member in self.mafia_team:
@@ -178,7 +194,58 @@ class GameRoom:
                     await self.bot.send_message(temp_chat_id[0], f"📢 {talker[1]}: {message}")
             return True
         await self.bot.send_message(chat_id, "❌ نوبت صحبت شما نیست!")
-    
+
+    async def handle_react(self, chat_id, callback: bale.CallbackQuery , is_like):
+        member_str = self.get_member_by_chat_id(chat_id)
+        if member_str and member_str in self.dead_players:
+            await self.bot.send_message(chat_id, "❌ شما مرده‌اید و نمی‌توانید ری‌اکت دهید!")
+            return
+        if self.current_talker == None or self.execute_condidates:
+            await self.bot.send_message(chat_id, "❌ وقت ری‌اکت نیست!")
+            return
+        if self.current_talker == chat_id:
+            await self.bot.send_message(chat_id, "❌ نمیتوانید به خودتان ری‌اکت دهید!")
+            return
+        reactor_id , reactor_name = member_str.split(',',1)
+        if "\n\n👍 لایک ها:" in callback.message.text:
+            temp_message, temp_likes = callback.message.text.rsplit("\n\n👍 لایک ها:",1)
+        elif "\n\n👎 دیسلایک ها" in callback.message.text:
+            temp_message, temp_likes = callback.message.text.rsplit("\n\n👎 دیسلایک ها",1)
+        else:
+            temp_message = callback.message.text
+        temp_sender, main_message = temp_message.split(': ',1)
+        try:
+            if reactor_name in self.reacts[main_message]:
+                await self.bot.send_message(chat_id, "❌ قبلا ری‌اکت دادید!")
+                return
+            self.reacts[main_message][reactor_name] = is_like
+            temp_message_obj = None
+            for i in self.talker_messages:
+                if i.text == main_message:
+                    temp_message_obj = i
+                    break
+            if is_like:
+                temp_text = f"👍 {reactor_name} به شما لایک داد."
+            else:
+                temp_text = f"👎 {reactor_name} به شما دیسلایک داد."
+            await temp_message_obj.reply(temp_text)
+            for i in self.turn_messages[main_message]:
+                likes_str = ""
+                dislikes_str = ""
+                react_str = ""
+                for j in self.reacts[main_message]:
+                    if self.reacts[main_message][j] == True:
+                        likes_str += f"{j}, "
+                    else:
+                        dislikes_str += f"{j}, "
+                if likes_str:
+                    react_str += f"👍 لایک ها: {likes_str[:-2]}\n"
+                if dislikes_str:
+                    react_str += f"👎 دیسلایک ها: {dislikes_str[:-2]}\n"
+                await i.edit(text=f"{temp_message}\n\n{react_str}", components=react_keyboard)
+        except:
+            await self.bot.send_message(chat_id, "❌ امکان ری‌اکت وجود ندارد!")
+
     async def handle_challange(self, chat_id):
         member_str = self.get_member_by_chat_id(chat_id)
         if member_str and member_str in self.dead_players:
@@ -199,11 +266,11 @@ class GameRoom:
         await self.broadcast_message(f"🤏 {requ_name[1]} چالش میخواهد.")
     
     async def handle_accept(self, chat_id, input):
-        async with self.vote_lock:
+        async with self.handle_lock:
             accepter_member = self.get_member_by_chat_id(chat_id)
             if chat_id != self.current_talker:
                 await self.bot.send_message(chat_id, "❌ در نوبت بقیه نمیتوانید چالش بدهید!")
-                return False
+                return False 
             for i in self.challange_requested:
                 requ_chat_id, requ_name = i.split(',', 1)
                 if requ_name.rstrip() == input[8:]:
@@ -266,7 +333,7 @@ class GameRoom:
         await self.count_votes()
     
     async def handle_vote(self, voter_chat_id, vote_input):
-        async with self.vote_lock:
+        async with self.handle_lock:
             voter_member = self.get_member_by_chat_id(voter_chat_id)
             if not self.vote_phase:
                 await self.bot.send_message(voter_chat_id, "❌ الان مرحله رای‌گیری نیست!")
@@ -427,7 +494,7 @@ class GameRoom:
         await self.bot.send_message(leader_id,"🔫 شکار شب را تا 20 ثانیه دیگر انتخاب کنید!",components=godfather_keyboard)
 
     async def handle_kill(self, killer_chat_id, kill_input):
-        async with self.vote_lock:
+        async with self.handle_lock:
             killer_member = self.get_member_by_chat_id(killer_chat_id)
             if killer_member != self.maf_leader:
                 await self.bot.send_message(killer_chat_id, "❌ شما لیدر مافیا نیستید!")
@@ -467,7 +534,7 @@ class GameRoom:
             await self.bot.send_message(sniper_id,"🔫 در صورت تمایل اسنایپ شب را تا 20 ثانیه دیگر انتخاب کنید!",components=sniper_keyboard)
 
     async def handle_snipe(self, sniper_chat_id, kill_input):
-        async with self.vote_lock:
+        async with self.handle_lock:
             sniper_member = self.get_member_by_chat_id(sniper_chat_id)
             if sniper_member != self.sniper:
                 await self.bot.send_message(sniper_chat_id, "❌ شما اسنایپر نیستید!")
@@ -508,7 +575,7 @@ class GameRoom:
             await self.bot.send_message(doci_id,"💞 تا 20 ثانیه دیگر انتخاب کنید چه کسی را نجات میدهید!",components=doctor_keyboard)
 
     async def handle_save(self, doctor_chat_id, save_input):
-        async with self.vote_lock:
+        async with self.handle_lock:
             doctor_member = self.get_member_by_chat_id(doctor_chat_id)
             if doctor_member != self.doctor:
                 await self.bot.send_message(doctor_chat_id, "❌ شما دکتر نیستید!")
@@ -555,7 +622,7 @@ class GameRoom:
             await self.bot.send_message(doci_id,"💞 تا 20 ثانیه دیگر انتخاب کنید چه کسی را نجات میدهید!",components=lecter_keyboard)
 
     async def handle_prot(self, doctor_chat_id, save_input):
-        async with self.vote_lock:
+        async with self.handle_lock:
             doctor_member = self.get_member_by_chat_id(doctor_chat_id)
             if doctor_member != self.lecter:
                 await self.bot.send_message(doctor_chat_id, "❌ شما دکتر نیستید!")
@@ -600,7 +667,7 @@ class GameRoom:
             await self.bot.send_message(detec_id,"🔎 تا 20 ثانیه دیگر انتخاب کنید استعلام چه کسی را میگیرید!",components=detective_keyboard)
 
     async def handle_detect(self, detect_chat_id, asked_input):
-        async with self.vote_lock:
+        async with self.handle_lock:
             detect_member = self.get_member_by_chat_id(detect_chat_id)
             if detect_member != self.detective:
                 await self.bot.send_message(detect_chat_id, "❌ شما کارآگاه نیستید!")
@@ -634,7 +701,7 @@ class GameRoom:
         await self.count_inquire()
     
     async def handle_inquire(self, inquire_chat_id):
-        async with self.vote_lock:
+        async with self.handle_lock:
             inquire_member = self.get_member_by_chat_id(inquire_chat_id)
             if not self.inquire_phase:
                 await self.bot.send_message(inquire_chat_id, "❌ الان وقت استعلام نیست!")
@@ -721,7 +788,7 @@ class GameRoom:
             self.game_active = False
     
     async def handle_handshake(self, voter_chat_id, vote_input):
-        async with self.vote_lock:
+        async with self.handle_lock:
             shaker_member = self.get_member_by_chat_id(voter_chat_id)
             if not self.handshake_phase or shaker_member in self.mafia_team:
                 await self.bot.send_message(voter_chat_id, "❌ الان مرحله دست دادن نیست!")
