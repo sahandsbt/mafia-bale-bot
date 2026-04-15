@@ -175,7 +175,7 @@ class GameRoom:
                 await self.bot.send_message(i_id[0],f"📢 {talker[1]}: {message}")
             return True
         if self.current_talker == chat_id:
-            await self.broadcast_message(f"📢 {self.current_talker_name}: {message}",exclude_talker=True, component=react_keyboard, save_messages=True)
+            await self.broadcast_message(f"📢 {self.current_talker_name}: {message}",exclude_talker=True, component=[react_keyboard,challange_keyboard], save_messages=True)
             self.reacts[message] = {}
             self.talker_messages.append(message_obj)
             return True
@@ -242,7 +242,7 @@ class GameRoom:
                     react_str += f"👍 لایک ها: {likes_str[:-2]}\n"
                 if dislikes_str:
                     react_str += f"👎 دیسلایک ها: {dislikes_str[:-2]}\n"
-                await i.edit(text=f"{temp_message}\n\n{react_str}", components=react_keyboard)
+                await i.edit(text=f"{temp_message}\n\n{react_str}", components=[react_keyboard,challange_keyboard])
         except:
             await self.bot.send_message(chat_id, "❌ امکان ری‌اکت وجود ندارد!")
 
