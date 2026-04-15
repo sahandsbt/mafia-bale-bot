@@ -136,12 +136,12 @@ class GameRoom:
             await self.bot.send_message(chat_id,"⏳ نوبت دفاعیه شماست. تا 90 ثانیه تمام پیام‌های شما برای بقیه ارسال می‌شود.")
             await asyncio.sleep(90)
         else:
-            challange_keyboard = bale.MenuKeyboardMarkup()
+            accept_keyboard = bale.MenuKeyboardMarkup()
             for i in self.challange_requested:
                 i_name = i.split(',',1)
-                challange_keyboard.add(bale.MenuKeyboardButton(f"چالش به {i_name[1]}"))
+                accept_keyboard.add(bale.MenuKeyboardButton(f"چالش به {i_name[1]}"))
             await self.broadcast_message(f"🗣️ نوبت حرف زدن {name} است.",exclude_talker=True,exclude_dead=True,component=challange_keyboard)
-            await self.bot.send_message(chat_id,"⏳ نوبت حرف زدن شماست. تا 60 ثانیه تمام پیام‌های شما برای بقیه ارسال می‌شود.",components=challange_keyboard)
+            await self.bot.send_message(chat_id,"⏳ نوبت حرف زدن شماست. تا 60 ثانیه تمام پیام‌های شما برای بقیه ارسال می‌شود.",components=accept_keyboard)
             await asyncio.sleep(60)
         await self.end_talking_turn()
     
@@ -175,7 +175,10 @@ class GameRoom:
                 await self.bot.send_message(i_id[0],f"📢 {talker[1]}: {message}")
             return True
         if self.current_talker == chat_id:
-            await self.broadcast_message(f"📢 {self.current_talker_name}: {message}",exclude_talker=True, component=[react_keyboard,challange_keyboard], save_messages=True)
+            temp_component = None
+            if not self.execute_condidates:
+                temp_component = react_keyboard
+            await self.broadcast_message(f"📢 {self.current_talker_name}: {message}",exclude_talker=True, component=temp_component, save_messages=True)
             self.reacts[message] = {}
             self.talker_messages.append(message_obj)
             return True
@@ -242,7 +245,7 @@ class GameRoom:
                     react_str += f"👍 لایک ها: {likes_str[:-2]}\n"
                 if dislikes_str:
                     react_str += f"👎 دیسلایک ها: {dislikes_str[:-2]}\n"
-                await i.edit(text=f"{temp_message}\n\n{react_str}", components=[react_keyboard,challange_keyboard])
+                await i.edit(text=f"{temp_message}\n\n{react_str}", components=react_keyboard)
         except:
             await self.bot.send_message(chat_id, "❌ امکان ری‌اکت وجود ندارد!")
 
@@ -420,6 +423,8 @@ class GameRoom:
             await self.broadcast_message(f"💀 {target_name} اعدام شد!")
 
     async def night_phase(self):
+        await self.broadcast_message("🌚 شب شد ...")
+        await asyncio.sleep(2)
         mafia_team_str = ""
         for member in self.mafia_team:
             temp = member.split(',', 1)
