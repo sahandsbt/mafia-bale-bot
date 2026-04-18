@@ -98,7 +98,7 @@ async def on_message(bot: bale.Bot, message: bale.Message):
             await message.reply("❕ برای استفاده از این دستور، روی پیام یک نفر ریپلای کرده و سپس /report را بفرستید.")
             return
         for admin in ADMINS_ID:
-            await bot.send_message(admin,f"🚨 درخواست بن از طرف {message.from_user.first_name}:\n\n________\n{replied_message.text}")
+            await bot.send_message(admin,f"🚨 درخواست بن از طرف {message.from_user.first_name}:\n\n-------\n{replied_message.text}")
         return
     
     chat_id = str(message.chat_id)

@@ -16,6 +16,9 @@ async def ban_user(bot, message, user_id, user_fn):
     if (user_id in ADMINS_ID) and str(message.from_user.id) != OWNER_ID:
         await message.reply("⚠ امکان بن کردن ادمین هارا ندارید!")
         return False
+    if not os.path.exists("data/banned.txt"):
+        f = open("data/banned.txt",'w',encoding="utf-8")
+        f.close()
     with open("data/banned.txt", 'r+', encoding="utf-8") as f:
         all_banned = f.readlines()
         if f"{user_id}\n" in all_banned:
