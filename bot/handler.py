@@ -84,7 +84,7 @@ async def room(bot, members_list):
 
 async def on_message(bot: bale.Bot, message: bale.Message):
     if f"{message.from_user.id}\n" in all_banned:
-        await message.reply(f"🚫 شما از بات بن شده اید!\n\n❕ برای اعتراض به {SUPPORT_USERNAME} پیام دهید.")
+        await message.reply(f"🚫 شما از بات بن شده اید!\n\n❕ برای اعتراض به @{SUPPORT_USERNAME} پیام دهید.")
         return
     if message.text == None:
         logger.warning(f"Unsupported type of message sent. | Name: {message.from_user.first_name} - ID: {message.from_user.id}")
@@ -210,7 +210,7 @@ async def on_message(bot: bale.Bot, message: bale.Message):
         await message.reply(text="🌱 گروه های فعال:",components=public_rooms)
 
     elif message.text == "☎ پشتیبانی" or message.text == "/support":
-        await message.reply(text=f"📣 در صورت بروز هرگونه مشکل فنی خواهشمندیم به\n🆔 {SUPPORT_USERNAME}\nدر بله یا تلگرام پیام دهید.")
+        await message.reply(text=f"📣 در صورت بروز هرگونه مشکل فنی خواهشمندیم به\n🆔 @{SUPPORT_USERNAME}\nدر بله یا تلگرام پیام دهید.")
     
     elif message.text == "✨ دونیت":
         await message.reply("🎁 با حمایت مالی از بات، به حفظ و توسعه آن کمک شایانی خواهید کرد.",components=donate_keyboard)
