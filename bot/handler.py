@@ -19,7 +19,9 @@ async def on_ready(bot: bale.Bot):
 load_dotenv()
 CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME")
 BOT_USERNAME = os.getenv("BOT_USERNAME")
-ADMIN_ID = os.getenv("ADMIN_ID")
+OWNER_ID = os.getenv("OWNER_ID")
+ADMINS_ID = os.getenv("ADMINS_ID").split(',')
+SUPPORT_USERNAME = os.getenv("SUPPORT_USERNAME")
 DONATE_URL = os.getenv("DONATE_URL")
 active_rooms: Dict[str, GameRoom] = {}
 queue_members = {}
@@ -57,6 +59,13 @@ invited_keyboard.add(bale.InlineKeyboardButton("🚪 خروج 🚪",callback_dat
 donate_keyboard = bale.InlineKeyboardMarkup()
 donate_keyboard.add(bale.InlineKeyboardButton("🎉 دونیت",url=DONATE_URL))
 
+all_banned = []
+try:
+    with open("data/banned.txt", 'r', encoding="utf-8") as f:
+        all_banned = f.readlines()
+except:
+    print("Error: File banned.txt does not exist")
+
 async def room(bot, members_list):
     room_id = str(hash(tuple(members_list)))
     room_locks[room_id] = asyncio.Lock()
@@ -74,10 +83,22 @@ async def room(bot, members_list):
             del room_locks[room_id]
 
 async def on_message(bot: bale.Bot, message: bale.Message):
+    if f"{message.from_user.id}\n" in all_banned:
+        await message.reply(f"🚫 شما از بات بن شده اید!\n\n❕ برای اعتراض به {SUPPORT_USERNAME} پیام دهید.")
+        return
     if message.text == None:
         logger.warning(f"Unsupported type of message sent. | Name: {message.from_user.first_name} - ID: {message.from_user.id}")
         return
     if not message.from_user.first_name:
+        return
+    
+    if message.text == "/report":
+        replied_message = message.reply_to_message
+        if not replied_message:
+            await message.reply("❕ برای استفاده از این دستور، روی پیام یک نفر ریپلای کرده و سپس /report را بفرستید.")
+            return
+        for admin in ADMINS_ID:
+            await bot.send_message(admin,f"🚨 درخواست بن از طرف {message.from_user.first_name}:\n\n________\n{replied_message.text}")
         return
     
     chat_id = str(message.chat_id)
@@ -189,7 +210,7 @@ async def on_message(bot: bale.Bot, message: bale.Message):
         await message.reply(text="🌱 گروه های فعال:",components=public_rooms)
 
     elif message.text == "☎ پشتیبانی" or message.text == "/support":
-        await message.reply(text="📣 در صورت بروز هرگونه مشکل فنی خواهشمندیم به\n🆔 @sahandsbt\nدر بله یا تلگرام پیام دهید.")
+        await message.reply(text=f"📣 در صورت بروز هرگونه مشکل فنی خواهشمندیم به\n🆔 {SUPPORT_USERNAME}\nدر بله یا تلگرام پیام دهید.")
     
     elif message.text == "✨ دونیت":
         await message.reply("🎁 با حمایت مالی از بات، به حفظ و توسعه آن کمک شایانی خواهید کرد.",components=donate_keyboard)
@@ -197,14 +218,60 @@ async def on_message(bot: bale.Bot, message: bale.Message):
     elif message.text == "❓ راهنما" or message.text == "/help":
         await message.reply(text=docs.main_help,components=docs_keyboard)
 
-    elif message.text == "/admin" and str(message.from_user.id) == ADMIN_ID:
+    elif message.text == "/admin" and str(message.from_user.id) in ADMINS_ID:
         await admin_menu(message)
+
+    elif message.text.startswith("/ban ") and str(message.from_user.id) in ADMINS_ID:
+        if '@' not in message.text:
+            await message.reply("⚠ لطفا یوزرنیم را با @ وارد کنید!")
+        unbanned_username = message.text.split('@')
+        unbanned_username = unbanned_username[1].lower()
+        try:
+            with open("data/users.txt", 'r', encoding="utf-8") as f:
+                banned_users = f.readlines()
+        except:
+            await message.reply("❌ کاربر یافت نشد!")
+            return
+        for user in banned_users:
+            user_data = user.split('|',2)
+            if user_data[1] == unbanned_username:
+                ban_success = await ban_user(bot, message, user_data[0], user_data[2][:-1])
+                if ban_success:
+                    all_banned.append(f"{user_data[0]}\n")
+                return
+        await message.reply("❌ کاربر یافت نشد!")
+
+    elif message.text.startswith("/unban ") and str(message.from_user.id) in ADMINS_ID:
+        unbanned_user = message.text.split(' ')[1].lower()
+        if '@' in unbanned_user:
+            unbanned_username = unbanned_user[1:]
+            try:
+                with open("data/users.txt", 'r', encoding="utf-8") as f:
+                    banned_users = f.readlines()
+            except:
+                await message.reply("❌ کاربر یافت نشد!")
+                return
+            for user in banned_users:
+                user_data = user.split('|',2)
+                if user_data[1] == unbanned_username:
+                    unban_success = await unban_user(bot, message, user_data[0])
+                    if unban_success:
+                        all_banned.remove(f"{user_data[0]}\n")
+                    return
+        elif unbanned_user.isdigit():
+            unban_success = await unban_user(bot, message, unbanned_user)
+            if unban_success:
+                all_banned.remove(f"{user_data[0]}\n")
+        else:
+            await message.reply("❌ لطفا اطلاعات درست وارد کنید!")
 
     else:
         await message.reply(text="😒 دستور نامعتبر!")
         logger.warning(f"Unsupported command sent. | Name: {message.from_user.first_name} - ID: {message.from_user.id}")
 
 async def on_callback(bot: bale.Bot, callback: bale.CallbackQuery):
+    if f"{callback.from_user.id}\n" in all_banned:
+        return
     if callback.data == "mafiabot:roles":
         await callback.message.edit(docs.roles_help,components=helpback_keyboard)
 
@@ -284,7 +351,7 @@ async def on_callback(bot: bale.Bot, callback: bale.CallbackQuery):
             queue_members[callback.from_user.id] = [f"{callback.from_user.chat_id},{callback.message.message_id},{callback.from_user.first_name}"]
         waiting_lobby[callback.from_user.chat_id] = callback.from_user.id
     
-    elif callback.data.startswith("mafiaadmin:") and str(callback.from_user.id) == ADMIN_ID:
+    elif callback.data.startswith("mafiaadmin:") and str(callback.from_user.id) in ADMINS_ID:
         if callback.data == "mafiaadmin:groups":
             await active_groups(bot, queue_members, callback)
         elif callback.data == "mafiaadmin:rooms":
