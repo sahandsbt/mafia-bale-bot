@@ -1,6 +1,0 @@
-{
-    "disks": {
-        "name": "mafiabot",
-        "mountTo": "data"
-    }
-}
